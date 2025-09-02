@@ -14,7 +14,7 @@
   <div class="controls">
     <div class="controls-row">
       <button id="gen">開始新遊戲</button>
-      <button id="pause">暫停</button>
+      <!-- <button id="pause">暫停</button> -->
       <button id="backHome">返回首頁</button>
     </div>
   </div>
@@ -55,7 +55,7 @@
   const totalEl    = document.getElementById('total');
   const clockEl    = document.getElementById('clock');
   const undoCountEl= document.getElementById('undoCount');
-  const pauseBtn   = document.getElementById('pause');
+//   const pauseBtn   = document.getElementById('pause');
   const genBtn     = document.getElementById('gen');
   const backHomeBtn= document.getElementById('backHome');
 
@@ -229,15 +229,15 @@
     },1000);
   }
 
-  function showPaused(){
-    gameState='paused';
-    showOverlay(`
-      <h2>暫停</h2>
-      <p>目前用時：<b>${clockEl.textContent}</b></p>
-      <div class="row"><button id="btnResume">繼續</button></div>
-    `);
-    document.getElementById('btnResume').onclick=()=>{hideOverlay();inputLocked=false;gameState='running';startTimer();};
-  }
+//   function showPaused(){
+//     gameState='paused';
+//     showOverlay(`
+//       <h2>暫停</h2>
+//       <p>目前用時：<b>${clockEl.textContent}</b></p>
+//       <div class="row"><button id="btnResume">繼續</button></div>
+//     `);
+//     document.getElementById('btnResume').onclick=()=>{hideOverlay();inputLocked=false;gameState='running';startTimer();};
+//   }
 
   // === 完成畫面＋寫入 + 計算排名 ===
   function showSuccess(){
@@ -395,10 +395,10 @@
 
   // 按鈕
   genBtn.onclick = generate;
-  pauseBtn.onclick=()=>{
-    if(gameState==='running'){ stopTimer(); inputLocked=true; showPaused(); }
-    else if(gameState==='paused'){ hideOverlay(); inputLocked=false; gameState='running'; startTimer(); }
-  };
+//   pauseBtn.onclick=()=>{
+//     if(gameState==='running'){ stopTimer(); inputLocked=true; showPaused(); }
+//     else if(gameState==='paused'){ hideOverlay(); inputLocked=false; gameState='running'; startTimer(); }
+//   };
   backHomeBtn.onclick = () => { location.href = 'index.html'; };
 
   // init
