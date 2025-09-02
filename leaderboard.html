@@ -40,9 +40,16 @@
   .rank.r3{background:var(--bronze)}
   .meta{flex:1 1 auto;display:flex;flex-direction:column;gap:4px}
   .titleRow{display:flex;align-items:center;justify-content:space-between;gap:10px}
-  .name{font-weight:800}
+  .name {
+    font-weight: 700;   /* 可以保持粗體或改成正常 */
+    font-size: 14px;    /* 調整字體大小，比14px小一點 */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;   /* 限制寬度避免換行，可依需求調整 */
+    }
   .pair{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
-  .kpi{display:flex;gap:6px;align-items:center;background:var(--pill);padding:6px 10px;border:1px solid var(--stroke);border-radius:999px;font-weight:700}
+  .kpi{display:flex;gap:6px;align-items:center;background:var(--pill);padding:6px 10px;border:1px solid var(--stroke);border-radius:999px;font-size:12px; font-weight:700}
   .sub{color:var(--muted);font-size:12px}
   .footerBar{display:flex;gap:10px;justify-content:center;margin:16px 0}
   .empty{padding:24px;text-align:center;color:var(--muted)}

@@ -77,7 +77,7 @@
         <button class="btn" data-mode="hard" data-size="10">10×10</button>
       </div>
       <div class="row" style="font-size:14px;opacity:.8">
-        數字從100開始，增加遊戲難度
+        數字從105開始，質數密度降低，增加遊戲難度
       </div>
     </div>
 
@@ -89,7 +89,7 @@
         <button class="btn" data-mode="hidden" data-size="10">10×10</button>
       </div>
       <div class="row" style="font-size:14px;opacity:.8">
-        只顯示質數位置，不顯示數字！
+        只顯示質數位置，不顯示數字，挑戰你的直覺與邏輯力
       </div>
     </div>
 
@@ -146,7 +146,7 @@
       const size = parseInt(btn.dataset.size,10);
 
       let start=1, hidden=0;
-      if(mode==='hard'){ start=100; hidden=0; }
+      if(mode==='hard'){ start=105; hidden=0; }
       if(mode==='hidden'){ start=1; hidden=1; }
 
       Router.go('play.html', { mode, size, name, start, hidden, hint:0, import:0 });
