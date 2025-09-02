@@ -72,7 +72,7 @@
   let inputLocked=true; // true = overlay/暫停/尚未開始
   let gameState='idle'; // idle|ready|countdown|running|paused|finished
   let undoCount=0;
-  let scoreSaved=false; // ✅ 完成時避免重複寫入
+  let scoreSaved=false; // 防重覆寫入
 
   // ===== 計時器 =====
   let tStart=0, tId=null, running=false, elapsedBeforePause=0;
@@ -136,7 +136,6 @@
           cell.classList.add('fixed','one');
           cell.textContent=String(v);
         } else if (filled[r][c]) {
-          // 已填入：顯示數字；質數維持紫色，合成用藍色
           const val = assigned[r][c];
           if (isPrime(val)) {
             cell.classList.add('prime');
@@ -145,7 +144,6 @@
           }
           cell.textContent = String(val);
         } else if(isPrime(v)){
-          // 尚未填的質數格
           cell.classList.add('prime');
           if(!hiddenMode){
             cell.classList.add('fixed');
@@ -241,35 +239,24 @@
     document.getElementById('btnResume').onclick=()=>{hideOverlay();inputLocked=false;gameState='running';startTimer();};
   }
 
+  // === 完成畫面＋寫入 + 計算排名 ===
   function showSuccess(){
-    if (scoreSaved) return;      // 防重
+    if (scoreSaved) return;
     gameState='finished';
     stopTimer();
 
-    // 以百分位(0.01s)四捨五入
     const totalMsRounded = Math.round(elapsedBeforePause / 10) * 10;
+    const time = fmt(totalMsRounded);
+    const rankSpanId = 'rankTextSpan';
 
-    // 寫入（失敗不擋流程）
-    if (window.saveScoreIfNeeded && !scoreSaved) {
-      scoreSaved = true;
-      window.saveScoreIfNeeded({
-        mode:  MODE,
-        size:  SIZE,
-        name:  PLAYER,
-        ms:    totalMsRounded,
-        undos: undoCount
-      });
-    }
-
-    const time = clockEl.textContent; // 00:MM.SS
-    const rankText = '—（排行榜稍後接上）';
+    // 先顯示占位
     showOverlay(`
       <h2>成功完成！</h2>
       <p>模式：<b>${modeLabel}${SIZE}階</b></p>
       <p>玩家：<b>${PLAYER}</b></p>
       <p>用時：<b>${time}</b></p>
       <p>取消次數：<b>${undoCount}</b></p>
-      <p>排名：<b>${rankText}</b></p>
+      <p>排名：<b id="${rankSpanId}">計算中…</b></p>
       <div class="row">
         <button id="btnAgain">再挑戰一次</button>
         <button id="btnHome">返回首頁</button>
@@ -282,6 +269,26 @@
     document.getElementById('btnLB').onclick    = () => {
       location.href = `leaderboard.html?mode=${MODE}&size=${SIZE}`;
     };
+
+    // 非阻塞地寫入並計算名次
+    if (window.saveScoreAndRank && !scoreSaved) {
+      scoreSaved = true;
+      window.saveScoreAndRank({
+        mode:  MODE,
+        size:  SIZE,
+        name:  PLAYER,
+        ms:    totalMsRounded,
+        undos: undoCount,
+        onRank: (rankLabel) => {
+          const span = document.getElementById(rankSpanId);
+          if (span) span.textContent = rankLabel;
+        }
+      }).catch(err=>{
+        const span = document.getElementById(rankSpanId);
+        if (span) span.textContent = '—（計算失敗）';
+        console.error(err);
+      });
+    }
   }
 
   function tryShake(el){ el.classList.add('wrong'); setTimeout(()=>el.classList.remove('wrong'),220); }
@@ -307,10 +314,10 @@
     }catch(err){ statusEl.className='err'; statusEl.textContent='Error: '+err.message; }
   }
 
-  // 落子/撤銷（含隱藏模式修正版順序）
+  // 落子/撤銷
   boardEl.addEventListener('click',(e)=>{
     const cell=e.target.closest('.cell'); if(!cell)return;
-    if(inputLocked)return; 
+    if(inputLocked)return;
     if(gameState!=='running')return;
 
     const r=+cell.dataset.r, c=+cell.dataset.c;
@@ -319,7 +326,7 @@
     // 固定不可點（起始格；一般模式還有所有質數）
     if(isFixed[r][c]) return;
 
-    // ① 撤銷：先於型態檢查執行
+    // 撤銷
     if(filled[r][c]){
       const idx=stack.findIndex(([rr,cc])=>rr===r&&cc===c);
       if(idx!==-1){
@@ -339,19 +346,19 @@
       return;
     }
 
-    // ② 隱藏模式型態限制（要落子才檢查）
+    // 隱藏模式型態限制
     if(hiddenMode){
       const needPrime = isPrime(current);
       const targetPrime = isPrime(v);
       if(needPrime !== targetPrime){ tryShake(cell); return; }
     }
 
-    // ③ 鄰接檢查：必須貼著 (current-1)
+    // 必須貼著 (current-1)
     if(current>maxVal) return;
     const prev=current-1; const prevPos=posOf[prev]; if(!prevPos){tryShake(cell);return;}
     const adjPrev=(Math.abs(prevPos[0]-r)+Math.abs(prevPos[1]-c)===1); if(!adjPrev){tryShake(cell);return;}
 
-    // 一般模式額外：若 (current+1) 是質數，也要同時貼著它
+    // 一般模式：若 (current+1) 是質數，也要同時貼著它
     if(!hiddenMode){
       const nxt=current+1;
       if(nxt<=maxVal && isPrime(nxt)){
@@ -361,10 +368,10 @@
       }
     }
 
-    // ④ 放置 current
-    filled[r][c]=true; 
-    assigned[r][c]=current; 
-    stack.push([r,c]); 
+    // 放置 current
+    filled[r][c]=true;
+    assigned[r][c]=current;
+    stack.push([r,c]);
     posOf[current]=[r,c];
 
     // 即時 UI
@@ -399,15 +406,16 @@
 })();
 </script>
 
-<!-- ✅ 唯一的 Firebase 腳本（初始化 & 暴露 saveScoreIfNeeded），放在頁尾 -->
+<!-- === Firebase：初始化、匿名登入、寫入與名次計算 === -->
+<!-- === Firebase：初始化、匿名登入、寫入與名次計算（修正版，先確保登入） === -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getFirestore, collection, addDoc, serverTimestamp }
-    from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
-  import { getAuth, signInAnonymously, onAuthStateChanged }
-    from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+  import {
+    getFirestore, collection, addDoc, serverTimestamp, doc, getDoc,
+    query, where, orderBy, limit, getDocs
+  } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
-  // 你的專案設定
   const firebaseConfig = {
     apiKey: "AIzaSyAbd97s2tRaR_VJXrBXGlibhMlSTujSl5w",
     authDomain: "prime-game-58db3.firebaseapp.com",
@@ -418,41 +426,76 @@
     measurementId: "G-0ZLPR7N4FB"
   };
 
-  // 初始化
-  const app  = initializeApp(firebaseConfig);
-  const db   = getFirestore(app);
+  const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
+  const db = getFirestore(app);
 
-  // 進到頁面就嘗試匿名登入（失敗也不會影響遊戲進行）
-  signInAnonymously(auth).catch(e => {
-    console.warn('匿名登入失敗（稍後寫入可能會被規則擋下）：', e);
-  });
-
-  // 保險：真的要寫時再檢查一次
-  async function ensureSignedIn(){
-    if (!auth.currentUser) {
-      await signInAnonymously(auth);
+  // 1) 建一個保證拿到 uid 的流程（只登入一次，之後快取）
+  let authReady = null;
+  async function ensureAuth() {
+    if (auth.currentUser) return auth.currentUser;
+    if (!authReady) {
+      authReady = (async () => {
+        try {
+          await signInAnonymously(auth);
+          // 等待 Firebase 寫好 currentUser（很快）
+          let tries = 0;
+          while (!auth.currentUser && tries++ < 20) {
+            await new Promise(r => setTimeout(r, 50));
+          }
+          if (!auth.currentUser) throw new Error('Anonymous sign-in not ready');
+          return auth.currentUser;
+        } catch (e) {
+          console.error('匿名登入失敗', e);
+          throw e;
+        }
+      })();
     }
+    return authReady;
   }
 
-  // 唯一公開 API：遊戲完成時呼叫它（你在 showSuccess() 已經有呼叫）
-  window.saveScoreIfNeeded = async ({mode, size, name, ms, undos}) => {
-    try {
-      await ensureSignedIn(); // 規則要求已登入
-      await addDoc(collection(db, "scores"), {
-        mode,            // 'basic' | 'hard' | 'hidden'
-        size,            // 5 | 7 | 10
-        name,            // 玩家名稱
-        ms,              // 總毫秒（你已四捨五入到 10ms）
-        undos,           // 取消次數
-        createdAt: serverTimestamp() // 用作同值時的第三排序鍵
-      });
-      // console.log('✅ 成績已寫入');
-    } catch (err) {
-      console.error('寫入成績失敗：', err);
-    }
-  };
+  // 2) 寫入 + 計算名次
+  async function saveScoreAndRank({ mode, size, name, ms, undos, onRank }) {
+    // (A) 先確保已登入，取得 uid
+    const user = await ensureAuth();
+
+    // (B) 寫入（createdAt 用 serverTimestamp 以符合規則）
+    const docRef = await addDoc(collection(db, 'scores'), {
+      mode, size, name,
+      ms: Number(ms),
+      undos: Number(undos),
+      createdAt: serverTimestamp(),
+      uid: user.uid
+    });
+
+    // (C) 讀回自己的 createdAt（serverTimestamp 需讀一次才有值）
+    const snap = await getDoc(doc(db, 'scores', docRef.id));
+    const my = { id: docRef.id, ms: Number(ms), undos: Number(undos), createdAt: snap.data()?.createdAt };
+
+    // (D) 查同 mode/size 的前 1000 名，排序規則：ms ↑, undos ↑, createdAt ↑
+    const q = query(
+      collection(db, 'scores'),
+      where('mode', '==', mode),
+      where('size', '==', size),
+      orderBy('ms', 'asc'),
+      orderBy('undos', 'asc'),
+      orderBy('createdAt', 'asc'),
+      limit(1000)
+    );
+
+    // 注意：若瀏覽器 Console 出現「requires an index」字樣，點連結建立索引即可
+    const list = await getDocs(q);
+
+    let rank = null, idx = 0;
+    list.forEach(d => { idx++; if (d.id === my.id) rank = idx; });
+    const label = (rank !== null) ? `第 ${rank} 名` : '第 1000+ 名';
+    if (typeof onRank === 'function') onRank(label);
+  }
+
+  // 暴露給遊戲邏輯呼叫
+  window.saveScoreAndRank = saveScoreAndRank;
 </script>
+
 
 </body>
 </html>

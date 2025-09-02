@@ -5,12 +5,44 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>質數遊戲 - 首頁</title>
   <link rel="stylesheet" href="assets/css/base.css">
+  <style>
+    .btn {
+      appearance:none;
+      border:0;
+      background:#ffbf48;
+      color:#000;
+      padding:10px 14px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:600;
+    }
+    .btn.secondary {
+      background:#fff;
+      border:1px solid #e8dfc7;
+    }
+    .btn:disabled {
+      opacity:.55;
+      cursor:not-allowed;
+    }
+    .btn:active {
+      transform:translateY(1px);
+    }
+    .controls-row {
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    #playerName {
+      margin-left:8px;
+    }
+  </style>
 </head>
 <body>
 <div class="wrap">
   <h1>漢米爾頓-質數遊戲</h1>
   <div class="row" style="font-size:14px;opacity:.8">
-        奧羅桌遊設計工作室-程式實作練習
+    奧羅桌遊設計工作室 - 程式實作練習
   </div>
 
   <div class="controls card">
@@ -18,7 +50,9 @@
       <label>挑戰者名稱：
         <input id="playerName" type="text" placeholder="你的名字">
       </label>
-      <button id="saveName" class="secondary">儲存名稱</button>
+      <button id="saveName" class="secondary btn">儲存名稱</button>
+      <!-- 新增排行榜按鈕，與儲存名稱並排 -->
+      <button id="goLeaderboard" class="btn">查看排行榜</button>
     </div>
   </div>
 
@@ -26,9 +60,9 @@
     <div class="card">
       <h3>基本模式</h3>
       <div class="row">
-        <button data-mode="basic" data-size="5">5×5</button>
-        <button data-mode="basic" data-size="7">7×7</button>
-        <button data-mode="basic" data-size="10">10×10</button>
+        <button class="btn" data-mode="basic" data-size="5">5×5</button>
+        <button class="btn" data-mode="basic" data-size="7">7×7</button>
+        <button class="btn" data-mode="basic" data-size="10">10×10</button>
       </div>
       <div class="row" style="font-size:14px;opacity:.8">
         從1開始，找到一條漢米爾頓路徑串連所有質數吧
@@ -38,9 +72,9 @@
     <div class="card">
       <h3>困難模式</h3>
       <div class="row">
-        <button data-mode="hard" data-size="5">5×5</button>
-        <button data-mode="hard" data-size="7">7×7</button>
-        <button data-mode="hard" data-size="10">10×10</button>
+        <button class="btn" data-mode="hard" data-size="5">5×5</button>
+        <button class="btn" data-mode="hard" data-size="7">7×7</button>
+        <button class="btn" data-mode="hard" data-size="10">10×10</button>
       </div>
       <div class="row" style="font-size:14px;opacity:.8">
         數字從100開始，增加遊戲難度
@@ -50,19 +84,19 @@
     <div class="card">
       <h3>隱藏模式</h3>
       <div class="row">
-        <button data-mode="hidden" data-size="5">5×5</button>
-        <button data-mode="hidden" data-size="7">7×7</button>
-        <button data-mode="hidden" data-size="10">10×10</button>
+        <button class="btn" data-mode="hidden" data-size="5">5×5</button>
+        <button class="btn" data-mode="hidden" data-size="7">7×7</button>
+        <button class="btn" data-mode="hidden" data-size="10">10×10</button>
       </div>
       <div class="row" style="font-size:14px;opacity:.8">
-        只顯示質數位置，不顯示數字!
+        只顯示質數位置，不顯示數字！
       </div>
     </div>
 
     <div class="card">
       <h3>自由模式</h3>
       <div class="row">
-        <button id="goFree">進入自由模式</button>
+        <button class="btn" id="goFree">進入自由模式</button>
       </div>
       <div class="row" style="font-size:14px;opacity:.8">
         可自訂起始數字 / 隱藏模式 / 提示 / 匯入匯出 / PNG
@@ -78,35 +112,60 @@
 (function(){
   const nameInput = document.getElementById('playerName');
   const saveBtn   = document.getElementById('saveName');
-  const stored = localStorage.getItem('playerName') || '';
-  if(stored) nameInput.value = stored;
+  const lbBtn     = document.getElementById('goLeaderboard');
 
+  const stored = localStorage.getItem('playerName') || '';
+  if (stored) nameInput.value = stored;
+
+  // 儲存名稱
   saveBtn.onclick = ()=>{
     const v = nameInput.value.trim();
     localStorage.setItem('playerName', v);
-    alert('已儲存挑戰者名稱：' + (v||'(未命名)'));
+    alert('已儲存挑戰者名稱：' + (v || '(未命名)'));
   };
 
-  // 模式按鈕 → 導向 play.html（依模式決定 start/hidden）
+  // 共用：檢查名稱是否已輸入
+  function ensureName(){
+    const v = nameInput.value.trim();
+    if (!v){
+      alert('請先輸入挑戰者名稱！');
+      nameInput.focus();
+      return null;
+    }
+    localStorage.setItem('playerName', v);
+    return v;
+  }
+
+  // 模式按鈕 → 導向 play.html
   document.querySelectorAll('button[data-mode]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      const mode = btn.dataset.mode;       // basic | hard | hidden
-      const size = parseInt(btn.dataset.size,10); // 5|7|10
-      const name = (nameInput.value.trim() || localStorage.getItem('playerName') || '玩家');
+      const name = ensureName();
+      if(!name) return;
 
-      let start   = 1;
-      let hidden  = 0;
-      if(mode==='hard')  { start = 100; hidden = 0; }
-      if(mode==='hidden'){ start = 1;   hidden = 1; }
+      const mode = btn.dataset.mode;
+      const size = parseInt(btn.dataset.size,10);
 
-      Router.go('play.html', {
-        mode, size, name, start, hidden,
-        hint: 0, import: 0
-      });
+      let start=1, hidden=0;
+      if(mode==='hard'){ start=100; hidden=0; }
+      if(mode==='hidden'){ start=1; hidden=1; }
+
+      Router.go('play.html', { mode, size, name, start, hidden, hint:0, import:0 });
     });
   });
 
-  document.getElementById('goFree').onclick = ()=> location.href = 'free.html';
+  // 自由模式
+  document.getElementById('goFree').onclick = ()=>{
+    const name = ensureName();
+    if(!name) return;
+    location.href = 'free.html';
+  };
+
+  // 查看排行榜
+  lbBtn.onclick = ()=>{
+    const name = ensureName();
+    if(!name) return;
+    location.href = 'leaderboard.html';
+  };
 })();
 </script>
 </body>
