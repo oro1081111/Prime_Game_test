@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>質數遊戲-自由模式</title>
+<style>
+  :root{--maxw:1000px}
+  body{margin:0;padding:16px;font-family:system-ui,sans-serif;background:#f6efe1;color:#222}
+  .controls{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;align-items:center}
+  .controls-row{display:flex;gap:12px;flex-wrap:wrap;align-items:end;justify-content:center}
+  label{font-size:18px;color:#555}
+  input, button{padding:12px 22px;border-radius:12px;font-size:20px}
+  button{background:#ffbf48;border:none;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,.08)}
+  .wrap{max-width:var(--maxw);margin:0 auto;text-align:center}
+  .board-wrap{position:relative;width:min(95vw,var(--maxw));margin:12px 0}
+  .board{display:grid;gap:2px}
+  .cell{border:1px solid #999;display:flex;align-items:center;justify-content:center;background:#fff;user-select:none;cursor:pointer;aspect-ratio:1/1;font-size:clamp(10px,2.4vw,16px);transition:background .12s,border-color .12s}
+  .cell.fixed{cursor:default}
+  .cell.one{background:#fff0b3;border-color:#e6b800;color:#7a4d00;font-weight:800}
+  .cell.prime{background:#f0e8ff;border-color:#c9b3ff;color:#4b2faf;font-weight:700}
+  .cell.next-prime-highlight{border:none!important;background:#e6ffe9!important;box-shadow:0 0 0 2px #b9f5c1 inset}
+  .cell.hint-wrong{color:#b00020!important;background:#ffecec!important;box-shadow:0 0 0 2px #ffb3b3 inset}
+  .cell.filled{background:#e8f7ff;font-weight:700}
+  .cell.wrong{animation:shake .22s}
+  @keyframes shake{0%{transform:translateX(0)}50%{transform:translateX(-2px)}100%{transform:translateX(0)}}
+  #status{margin-top:10px;font-family:ui-monospace,Consolas,Menlo,monospace;color:#5a4700;text-align:center;font-size:20px}
+  #status.err{color:#b00020}
+  .hud{display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:center}
+  .pill{background:#fff3c4;border:1px solid #e7cf86;border-radius:999px;padding:6px 10px}
+
+  /* Overlay（單層 Modal） */
+  .overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);border-radius:6px}
+  .overlay.show{display:flex}
+  .modal{
+    background:#fff;border-radius:16px;box-shadow:0 12px 36px rgba(0,0,0,.32);
+    padding:24px 28px;width:min(420px,90%);text-align:center;line-height:1.6
+  }
+  .modal h2{margin:0 0 10px;font-size:clamp(22px,6vw,28px)}
+  .modal .big{font-size:clamp(28px,10vw,120px);font-weight:900}
+
+  /* 成功視窗的段落靠左 */
+  .modal.success p{margin:6px 0;color:#555;text-align:left;font-size:18px}
+
+  /* 成功視窗：按鈕區改成網格並置中 */
+  .modal .row{
+    display:grid;grid-template-columns:repeat(2,minmax(140px,1fr));gap:12px;justify-items:center;margin-top:14px
+  }
+  .modal .row .wide{grid-column:1 / -1}
+  @media (max-width:480px){
+    .modal .row{grid-template-columns:1fr;gap:10px}
+    .modal .row .wide{grid-column:auto}
+    .modal .row button{width:100%;min-width:0}
+  }
+
+  /* iOS 風格開關 */
+  .switch{display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+  .switch input{appearance:none;-webkit-appearance:none;width:0;height:0;position:absolute;opacity:0;pointer-events:none}
+  .switch .slider{position:relative;width:52px;height:30px;border-radius:999px;background:#ddd;box-shadow:inset 0 0 0 2px rgba(0,0,0,.05);transition:background .2s}
+  .switch .slider::before{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.15);transition:transform .2s}
+  .switch input:checked + .slider{background:#34c759}
+  .switch input:checked + .slider::before{transform:translateX(22px)}
+  .switch .switch-label{font-size:18px;color:#555}
+  .switch input:focus-visible + .slider{outline:2px solid #000;outline-offset:3px}
+  @media (prefers-color-scheme: dark){
+    .switch .slider{background:#666}
+    .switch input:checked + .slider{background:#2ecc71}
+  }
+  /* === 尺寸校正：讓 free.html 和 play.html 一樣 === */
+
+/* 全站基準字級 */
+html, body { font-size: 16px; }
+
+/* 標題：避免過大 */
+h1{
+  font-size: clamp(22px, 5vw, 32px);
+  margin: 8px 0 12px;
+}
+
+/* 輸入/按鈕：固定到正常大小（≥16px 可避免 iOS 放大） */
+input, button{
+  font-size: 18px;
+  padding: 10px 14px;
+  border-radius: 12px;
+}
+
+/* HUD 膠囊大小回到正常 */
+.pill{
+  font-size: 16px;
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
+/* 面板寬度與置中 */
+.wrap{ max-width: 1000px; margin: 0 auto; }
+.board-wrap{ width: min(95vw, 1000px); margin: 12px auto; }
+
+/* 開關縮小到一般尺寸 */
+.switch .slider{ width: 44px; height: 26px; }
+.switch .slider::before{ width: 20px; height: 20px; top: 3px; left: 3px; }
+.switch input:checked + .slider::before{ transform: translateX(18px); }
+
+/* 單層遮罩 + modal 尺寸（和 play.html 一致） */
+.overlay{
+  position:absolute; inset:0;
+  display:none; align-items:center; justify-content:center;
+  background: rgba(0,0,0,.72);      /* 單層半透明 */
+  backdrop-filter: blur(3px);       /* 輕微模糊 */
+}
+.overlay.show{ display:flex; }
+
+.modal{
+  background:#fff;
+  border-radius: 16px;
+  /* 更柔和、單層陰影 */
+  box-shadow: 0 18px 50px rgba(0,0,0,.28);
+  padding: 20px 22px;
+  width: min(420px, 92%);           /* 行動裝置不會太寬 */
+  text-align: center;
+  line-height: 1.55;
+}
+.modal h2{ font-size: clamp(24px, 6vw, 32px); margin: 0 0 8px; }
+.modal p{ margin: 6px 0 14px; color:#555; text-align: left; }
+
+/* Modal 內的按鈕布局（手機直排、桌機兩欄） */
+.modal .row{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  gap: 12px;
+  justify-items: center;
+  margin-top: 14px;
+}
+.modal .row .wide{ grid-column: 1 / -1; }
+@media (max-width: 480px){
+  .modal .row{ grid-template-columns: 1fr; gap: 10px; }
+  .modal .row .wide{ grid-column: auto; }
+  .modal .row button{ width: 100%; min-width: 0; }
+}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>質數遊戲-自由模式</h1>
+
+  <div class="controls">
+    <div class="controls-row">
+      <label>高度: <input id="rows" type="number" value="5" min="1" max="20"></label>
+      <label>寬度: <input id="cols" type="number" value="5" min="1" max="20"></label>
+    </div>
+    <div class="controls-row">
+      <label>起始數字: <input id="startNum" type="number" value="1" min="1" max="999"></label>
+      <label class="switch">
+        <input id="hiddenMode" type="checkbox"/>
+        <span class="slider" aria-hidden="true"></span>
+        <span class="switch-label">隱藏模式</span>
+      </label>
+    </div>
+    <div class="controls-row">
+      <button id="backHome">返回首頁</button>
+    </div>
+    <div class="controls-row">
+      <button id="gen">開始新遊戲</button>
+      <button id="pause">暫停</button>
+      <button id="hintBtn">提示次數：0</button>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="pill">下一個要填：<b id="nextN">—</b></div>
+    <div class="pill">已填：<span id="progress">0</span>/<span id="total">0</span></div>
+    <div class="pill">計時：<b id="clock">00:00.0</b></div>
+    <div class="pill">取消次數：<b id="undoCount">0</b></div>
+  </div>
+
+  <div class="board-wrap">
+    <div id="board" class="board"></div>
+    <div id="overlay" class="overlay"><div id="overlayContent" class="modal"></div></div>
+  </div>
+
+  <!-- 匯出/匯入/輸出圖檔 -->
+  <div class="controls">
+    <div class="controls-row">
+      <button id="exportBtn">匯出題目</button>
+      <button id="importBtn">匯入題目</button>
+      <button id="pngBtn">輸出圖檔</button>
+      <input id="importFile" type="file" accept="application/json" style="display:none;">
+    </div>
+  </div>
+
+  <p id="status"></p>
+</div>
+
+<script>
+(()=> {
+  const rowsEl = document.getElementById('rows');
+  const colsEl = document.getElementById('cols');
+  const startEl = document.getElementById('startNum');
+  const hiddenModeEl = document.getElementById('hiddenMode');
+
+  const statusEl = document.getElementById('status');
+  const boardEl = document.getElementById('board');
+  const overlayEl = document.getElementById('overlay');
+  const overlayContent = document.getElementById('overlayContent');
+  const nextNEl = document.getElementById('nextN');
+  const progressEl = document.getElementById('progress');
+  const totalEl = document.getElementById('total');
+  const clockEl = document.getElementById('clock');
+  const undoCountEl = document.getElementById('undoCount');
+  const pauseBtn = document.getElementById('pause');
+  const hintBtn = document.getElementById('hintBtn');
+
+  const exportBtn = document.getElementById('exportBtn');
+  const importBtn = document.getElementById('importBtn');
+  const pngBtn = document.getElementById('pngBtn');
+  const importFileEl = document.getElementById('importFile');
+
+  // State
+  let R=0, C=0, startNum=1;
+  let path=[], gridOrder=[];
+  let isFixed=[], filled=[], assigned=[], stack=[];
+  let current=0, maxVal=0, totalComposites=0;
+  let posOf={};
+  let inputLocked=true;
+  let gameState='idle';
+  let undoCount=0;
+  let hintCount=0, hintActive=false;
+  let hiddenMode=false;
+
+  // Timer
+  let tStart=0, tId=null, running=false, elapsedBeforePause=0;
+  const fmt = (ms)=>{
+    const s = Math.floor(ms/1000);
+    const m = Math.floor(s/60);
+    const sec = s % 60;
+    const hundredths = Math.floor((ms % 1000) / 10); // 0~99
+    return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}.${String(hundredths).padStart(2,'0')}`;
+    };
+  const startTimer = ()=>{
+    tStart = performance.now();
+    running = true;
+    clearInterval(tId);
+    tId = setInterval(()=>{
+        clockEl.textContent = fmt(elapsedBeforePause + (performance.now() - tStart));
+    }, 10); // 每 0.01 秒更新
+    };
+
+  const stopTimer = () => {
+    if (!running) return;
+    elapsedBeforePause += performance.now() - tStart;
+    running = false;
+    clearInterval(tId);
+    tId = null;
+    };
+
+  const resetTimer = () => {
+    clearInterval(tId);
+    tId = null;
+    running = false;
+    elapsedBeforePause = 0;
+    clockEl.textContent = fmt(0); // 用 fmt(0) → "00:00.00"
+    };
+
+  // Math helpers
+  const isPrime=(n)=>{if(n<=1)return false;if(n===2)return true;if(n%2===0)return false;for(let i=3;i*i<=n;i+=2){if(n%i===0)return false;}return true;};
+  const isComposite=(n)=> n>1 && !isPrime(n);
+  const nextComposite=(n)=>{let k=n+1;while(k<=maxVal && !isComposite(k))k++;return k;};
+
+  // Hamiltonian path
+  function initSnake(R,C){const p=[];for(let r=0;r<R;r++){if(r%2===0){for(let c=0;c<C;c++)p.push([r,c]);}else{for(let c=C-1;c>=0;c--)p.push([r,c]);}}return p;}
+  function backbite(p,R,C){const n=p.length;if(n<4)return false;const useHead=Math.random()<0.5;const endpoint=useHead?p[0]:p[n-1];const idx=new Map();for(let i=0;i<n;i++)idx.set(p[i][0]+","+p[i][1],i);const ds=[[1,0],[-1,0],[0,1],[0,-1]];const cand=[];for(const [dr,dc] of ds){const nr=endpoint[0]+dr,nc=endpoint[1]+dc;if(nr<0||nr>=R||nc<0||nc>=C)continue;const key=nr+","+nc;if(!idx.has(key))continue;const k=idx.get(key);if(useHead){if(k<=1)continue;}else{if(k>=n-2)continue;}cand.push(k);}if(!cand.length)return false;const k=cand[(Math.random()*cand.length)|0];if(useHead){const pre=p.slice(0,k).reverse();const rest=p.slice(k);p.splice(0,p.length,...pre,...rest);}else{const left=p.slice(0,k+1);const tail=p.slice(k+1).reverse();p.splice(0,p.length,...left,...tail);}return true;}
+
+  function buildBoard(){
+    boardEl.style.gridTemplateColumns = `repeat(${C}, 1fr)`;
+    boardEl.innerHTML='';
+
+    let highlightPrime = null;
+    if(!hiddenMode){
+      for(let k=current+1; k<=maxVal; k++) { if(isPrime(k)) { highlightPrime = k; break; } }
+    }
+
+    for(let r=0;r<R;r++){
+      for(let c=0;c<C;c++){
+        const v=gridOrder[r][c];
+        const cell=document.createElement('div');
+        cell.className='cell';
+        cell.dataset.r=r;cell.dataset.c=c;
+
+        if(v===startNum){
+          cell.classList.add('fixed','one');
+          cell.textContent=String(v);
+        } else if (filled[r][c]) {
+          const val = assigned[r][c];
+          if (isPrime(val)) cell.classList.add('prime');
+          else cell.classList.add('filled');
+          cell.textContent = String(val);
+        } else if(isPrime(v)){
+          cell.classList.add('prime');
+          if(!hiddenMode){
+            cell.classList.add('fixed');
+            cell.textContent=String(v);
+            if(v===highlightPrime) cell.classList.add('next-prime-highlight');
+          } else {
+            cell.textContent='';
+          }
+        }
+        boardEl.appendChild(cell);
+      }
+    }
+  }
+
+  function updateHUD(){
+    nextNEl.textContent=current?String(current):'—';
+    progressEl.textContent=String(stack.length);
+    totalEl.textContent=String(totalComposites);
+    undoCountEl.textContent=String(undoCount);
+    buildBoard();
+  }
+
+  function resetState(){
+    isFixed=Array.from({length:R},()=>Array(C).fill(false));
+    filled=Array.from({length:R},()=>Array(C).fill(false));
+    assigned=Array.from({length:R},()=>Array(C).fill(0));
+    stack=[]; posOf={}; undoCount=0;
+
+    for(let r=0;r<R;r++){
+      for(let c=0;c<C;c++){
+        const v=gridOrder[r][c];
+        if(hiddenMode){
+          if(v===startNum){ isFixed[r][c]=true; posOf[v]=[r,c]; }
+        }else{
+          if(v===startNum || isPrime(v)){ isFixed[r][c]=true; posOf[v]=[r,c]; }
+        }
+      }
+    }
+
+    maxVal = startNum + R*C - 1;
+
+    if(hiddenMode){
+      totalComposites = R*C - 1;
+      current = startNum + 1;
+    } else {
+      totalComposites = 0;
+      for(let k=startNum+1;k<=maxVal;k++) if(isComposite(k)) totalComposites++;
+      current = nextComposite(startNum);
+    }
+
+    updateHUD();
+  }
+
+  /* ---- 單層 Modal：可傳入額外 class ---- */
+  function showOverlay(html, extraClass=''){
+    overlayContent.className = 'modal';
+    if(extraClass) overlayContent.classList.add(extraClass);
+    overlayContent.innerHTML = html;
+    overlayEl.classList.add('show');
+    inputLocked = true;
+  }
+  function hideOverlay(){overlayEl.classList.remove('show');overlayContent.innerHTML='';}
+
+  function showStartOverlay(){
+    gameState='ready';
+    const rule = hiddenMode
+      ? '隱藏模式：依序填入 <b>所有數字</b>（包含質數）。每一步必須貼著前一數字。<b>當前要填是質數→只能點質數格；是合成數→只能點合成數格</b>。'
+      : '一般模式：依序填入 <b>合成數</b>，每一步必須貼著前一數字；若下一個數字是質數，也要同時貼著該質數。';
+    showOverlay(`
+      <h2>開始遊戲</h2>
+      <p>${rule}</p>
+      <div class="row"><button id="btnStart" class="wide">點擊開始</button></div>
+    `,'start');
+    document.getElementById('btnStart').onclick=()=>startCountdown();
+  }
+
+  function startCountdown(){
+    gameState='countdown';
+    let n=3;
+    showOverlay(`<div class="big" id="cdNum">${n}</div><p>準備囉…</p>`,'countdown');
+    const cdNum=document.getElementById('cdNum');
+    const tick=setInterval(()=>{
+      n--; if(n>0){cdNum.textContent=String(n);} else {clearInterval(tick);hideOverlay();inputLocked=false;gameState='running';resetTimer();startTimer();}
+    },1000);
+  }
+
+  function showPaused(){
+    gameState='paused';
+    showOverlay(`
+      <h2>暫停</h2>
+      <p>目前用時：<b>${clockEl.textContent}</b></p>
+      <div class="row"><button id="btnResume" class="wide">繼續</button></div>
+    `,'paused');
+    document.getElementById('btnResume').onclick=()=>{hideOverlay();inputLocked=false;gameState='running';startTimer();};
+  }
+
+  function showSuccess(){
+    gameState='finished';
+    const time = clockEl.textContent; 
+    stopTimer();
+
+    // 模式描述：起始數字、是否隱藏、尺寸
+    const sizeLabel = `${R}×${C}`;
+    const startLabel = `起始數字${startNum}`;
+    const hiddenLabel = hiddenMode ? '隱藏模式, ' : '';
+    const modeDesc = `${startLabel}, ${hiddenLabel}尺寸${sizeLabel}`;
+
+    // 玩家名稱（從 localStorage 或 query 讀取，預設 Oro）
+    const PLAYER = localStorage.getItem('playerName') || 'Oro';
+    showOverlay(`
+      <h2>成功完成！</h2>
+       <p>模式：${modeDesc}</p>
+      <p>玩家：<b>${PLAYER}</b></p>
+      <p>用時：<b>${time}</b></p>
+      <p>取消次數：<b>${undoCount}</b></p>
+      <div class="row">
+        <button id="btnAgain">再挑戰一次</button>
+        <button id="btnHome">返回首頁</button>
+      </div>
+    `,'success');
+    document.getElementById('btnAgain').onclick=()=>{ hideOverlay(); generate(); };
+    document.getElementById('btnHome').onclick=()=>{ location.href='index.html'; };
+  }
+
+  function tryShake(el){ el.classList.add('wrong'); setTimeout(()=>el.classList.remove('wrong'),220); }
+
+  function generate(){
+    try{
+      resetTimer(); inputLocked=true; gameState='idle';
+      hintCount = 0; hintBtn.textContent = '提示次數：0';
+      if (hintActive) clearHintHighlights();
+
+      R=parseInt(rowsEl.value,10); C=parseInt(colsEl.value,10);
+      startNum = parseInt(startEl.value,10) || 1;
+      hiddenMode = !!(hiddenModeEl && hiddenModeEl.checked);
+      if(!(R>0&&C>0)) throw new Error('Rows/Columns 必須 > 0');
+
+      path = initSnake(R,C);
+      if(Math.random()<0.5) path.reverse();
+      const rot = (Math.random()*path.length)|0; path = path.slice(rot).concat(path.slice(0,rot));
+      const iters = Math.max(1, 20*R*C);
+      for(let i=0;i<iters;i++) backbite(path,R,C);
+
+      gridOrder = Array.from({length:R},()=>Array(C).fill(0));
+      path.forEach((pt,i)=>{ gridOrder[pt[0]][pt[1]] = startNum + i; });
+
+      undoCount = 0; undoCountEl.textContent='0';
+
+      resetState();
+      statusEl.className='';
+      showStartOverlay();
+    }catch(err){ statusEl.className='err'; statusEl.textContent='Error: '+err.message; }
+  }
+
+  // Hints
+  function clearHintHighlights(){
+    document.querySelectorAll('.cell.hint-wrong').forEach(el=>el.classList.remove('hint-wrong'));
+    hintActive = false;
+  }
+  function applyHint(){
+    for(let r=0;r<R;r++){
+      for(let c=0;c<C;c++){
+        if(filled[r][c]){
+          const correct = gridOrder[r][c];
+          const placed  = assigned[r][c];
+          if(placed !== correct){
+            const cell = boardEl.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+            if(cell) cell.classList.add('hint-wrong');
+          }
+        }
+      }
+    }
+    hintActive = true;
+  }
+
+  // Click to place/undo
+  boardEl.addEventListener('click',(e)=>{
+    const cell=e.target.closest('.cell'); if(!cell)return;
+    if(hintActive) clearHintHighlights();
+    if(inputLocked)return;
+    if(gameState!=='running')return;
+
+    const r=+cell.dataset.r, c=+cell.dataset.c;
+    const v=gridOrder[r][c];
+
+    if(isFixed[r][c]) return;
+
+    if(filled[r][c]){
+      const idx=stack.findIndex(([rr,cc])=>rr===r&&cc===c);
+      if(idx!==-1){
+        for(let i=stack.length-1;i>=idx;i--){
+          const [rr,cc]=stack[i];
+          const delVal=assigned[rr][cc];
+          filled[rr][cc]=false; assigned[rr][cc]=0; delete posOf[delVal];
+        }
+        stack=stack.slice(0,idx);
+        undoCount++; undoCountEl.textContent=String(undoCount);
+
+        let last=startNum;
+        if(stack.length){const [lr,lc]=stack[stack.length-1]; last=assigned[lr][lc];}
+        current = hiddenMode ? (last+1) : nextComposite(last);
+        updateHUD();
+      }
+      return;
+    }
+
+    if(hiddenMode){
+      const needPrime = isPrime(current);
+      const targetPrime = isPrime(v);
+      if(needPrime !== targetPrime){ tryShake(cell); return; }
+    }
+
+    if(current>maxVal) return;
+    const prev=current-1; const prevPos=posOf[prev]; if(!prevPos){tryShake(cell);return;}
+    const adjPrev=(Math.abs(prevPos[0]-r)+Math.abs(prevPos[1]-c)===1); if(!adjPrev){tryShake(cell);return;}
+
+    if(!hiddenMode){
+      const nxt=current+1;
+      if(nxt<=maxVal && isPrime(nxt)){
+        const nxtPos=posOf[nxt];
+        const adjNext=nxtPos&&(Math.abs(nxtPos[0]-r)+Math.abs(nxtPos[1]-c)===1);
+        if(!adjNext){tryShake(cell);return;}
+      }
+    }
+
+    filled[r][c]=true; 
+    assigned[r][c]=current; 
+    stack.push([r,c]); 
+    posOf[current]=[r,c];
+
+    const domCell = boardEl.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+    if(domCell){
+      domCell.textContent = String(current);
+      if (isPrime(current)) { domCell.classList.remove('filled'); domCell.classList.add('prime'); }
+      else { domCell.classList.add('filled'); }
+      if (current === startNum) domCell.classList.add('one');
+    }
+
+    current = hiddenMode ? (current+1) : nextComposite(current);
+    updateHUD();
+
+    if(stack.length===totalComposites){ stopTimer(); showSuccess(); }
+  });
+
+  // 匯出 / 匯入 / PNG
+  function downloadBlob(filename, blob){
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=filename;
+    document.body.appendChild(a); a.click();
+    URL.revokeObjectURL(a.href); a.remove();
+  }
+  function exportPuzzle(){
+    const data = { version:1, R, C, startNum, hiddenMode, gridOrder };
+    const blob = new Blob([JSON.stringify(data)], {type:'application/json'});
+    downloadBlob(`puzzle_${R}x${C}_start${startNum}_${hiddenMode?'hidden':'normal'}.json`, blob);
+  }
+  async function importPuzzle(file){
+    try{
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if(!data || !Array.isArray(data.gridOrder)) throw new Error('檔案格式錯誤');
+      const rLen = data.gridOrder.length;
+      const cLen = rLen ? data.gridOrder[0].length : 0;
+      if(!(rLen>0 && cLen>0)) throw new Error('棋盤資料不完整');
+
+      R = data.R || rLen; C = data.C || cLen;
+      startNum = data.startNum || 1;
+      hiddenMode = !!data.hiddenMode;
+      gridOrder = data.gridOrder;
+
+      rowsEl.value = R; colsEl.value = C; startEl.value = startNum;
+      if(hiddenModeEl) hiddenModeEl.checked = hiddenMode;
+
+      resetTimer(); hintCount=0; hintBtn.textContent='提示次數：0'; undoCount=0; undoCountEl.textContent='0';
+      statusEl.className='';
+
+      resetState();
+      showStartOverlay();
+    }catch(err){
+      statusEl.className='err';
+      statusEl.textContent='匯入失敗：'+err.message;
+    }
+  }
+  function exportPNG(){
+    const maxCanvasW = Math.min(1000, Math.floor(window.innerWidth*0.95));
+    const cellSize = Math.max(20, Math.floor(maxCanvasW / C));
+    const W = cellSize * C;
+    const H = cellSize * R;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    const colGrid = '#bbb', colText = '#222', colPrimeBg = '#f0e8ff', colStartBg = '#fff0b3';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `${Math.floor(cellSize*0.42)}px system-ui, sans-serif`;
+
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,W,H);
+
+    for(let r=0;r<R;r++){
+      for(let c=0;c<C;c++){
+        const v = gridOrder[r][c];
+        const x = c*cellSize, y = r*cellSize;
+
+        if(v===startNum){ ctx.fillStyle = colStartBg; ctx.fillRect(x,y,cellSize,cellSize); }
+        else if(isPrime(v)){ ctx.fillStyle = colPrimeBg; ctx.fillRect(x,y,cellSize,cellSize); }
+
+        if(v===startNum || (isPrime(v) && !hiddenMode)){
+          ctx.fillStyle = colText; ctx.fillText(String(v), x+cellSize/2, y+cellSize/2);
+        }
+
+        ctx.strokeStyle = colGrid; ctx.strokeRect(x,y,cellSize,cellSize);
+      }
+    }
+
+    canvas.toBlob(blob=>{
+      if(blob) downloadBlob(`puzzle_${R}x${C}_start${startNum}_${hiddenMode?'hidden':'normal'}.png`, blob);
+    });
+  }
+
+  // 綁定事件
+  document.getElementById('backHome').onclick = ()=>{ location.href='index.html'; };
+  document.getElementById('gen').onclick = generate;
+  pauseBtn.onclick=()=>{
+    if(gameState==='running'){ stopTimer(); inputLocked=true; showPaused(); }
+    else if(gameState==='paused'){ hideOverlay(); inputLocked=false; gameState='running'; startTimer(); }
+  };
+  hintBtn.onclick=()=>{ if(hintActive) return; applyHint(); hintCount++; hintBtn.textContent = `提示次數：${hintCount}`; };
+  exportBtn.onclick = exportPuzzle;
+  importBtn.onclick = ()=> importFileEl.click();
+  importFileEl.addEventListener('change',(e)=>{const f=e.target.files&&e.target.files[0]; if(f) importPuzzle(f); importFileEl.value='';});
+  pngBtn.onclick = exportPNG;
+
+  // init
+  generate();
+})();
+</script>
+</body>
+</html>

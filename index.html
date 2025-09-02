@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>質數遊戲 - 首頁</title>
+  <link rel="stylesheet" href="assets/css/base.css">
+</head>
+<body>
+<div class="wrap">
+  <h1>漢米爾頓-質數遊戲</h1>
+  <div class="row" style="font-size:14px;opacity:.8">
+        奧羅桌遊設計工作室-程式實作練習
+  </div>
+
+  <div class="controls card">
+    <div class="controls-row">
+      <label>挑戰者名稱：
+        <input id="playerName" type="text" placeholder="你的名字">
+      </label>
+      <button id="saveName" class="secondary">儲存名稱</button>
+    </div>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <h3>基本模式</h3>
+      <div class="row">
+        <button data-mode="basic" data-size="5">5×5</button>
+        <button data-mode="basic" data-size="7">7×7</button>
+        <button data-mode="basic" data-size="10">10×10</button>
+      </div>
+      <div class="row" style="font-size:14px;opacity:.8">
+        從1開始，找到一條漢米爾頓路徑串連所有質數吧
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>困難模式</h3>
+      <div class="row">
+        <button data-mode="hard" data-size="5">5×5</button>
+        <button data-mode="hard" data-size="7">7×7</button>
+        <button data-mode="hard" data-size="10">10×10</button>
+      </div>
+      <div class="row" style="font-size:14px;opacity:.8">
+        數字從100開始，增加遊戲難度
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>隱藏模式</h3>
+      <div class="row">
+        <button data-mode="hidden" data-size="5">5×5</button>
+        <button data-mode="hidden" data-size="7">7×7</button>
+        <button data-mode="hidden" data-size="10">10×10</button>
+      </div>
+      <div class="row" style="font-size:14px;opacity:.8">
+        只顯示質數位置，不顯示數字!
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>自由模式</h3>
+      <div class="row">
+        <button id="goFree">進入自由模式</button>
+      </div>
+      <div class="row" style="font-size:14px;opacity:.8">
+        可自訂起始數字 / 隱藏模式 / 提示 / 匯入匯出 / PNG
+      </div>
+    </div>
+  </div>
+
+  <footer>© Prime Game</footer>
+</div>
+
+<script src="assets/js/router.js"></script>
+<script>
+(function(){
+  const nameInput = document.getElementById('playerName');
+  const saveBtn   = document.getElementById('saveName');
+  const stored = localStorage.getItem('playerName') || '';
+  if(stored) nameInput.value = stored;
+
+  saveBtn.onclick = ()=>{
+    const v = nameInput.value.trim();
+    localStorage.setItem('playerName', v);
+    alert('已儲存挑戰者名稱：' + (v||'(未命名)'));
+  };
+
+  // 模式按鈕 → 導向 play.html（依模式決定 start/hidden）
+  document.querySelectorAll('button[data-mode]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const mode = btn.dataset.mode;       // basic | hard | hidden
+      const size = parseInt(btn.dataset.size,10); // 5|7|10
+      const name = (nameInput.value.trim() || localStorage.getItem('playerName') || '玩家');
+
+      let start   = 1;
+      let hidden  = 0;
+      if(mode==='hard')  { start = 100; hidden = 0; }
+      if(mode==='hidden'){ start = 1;   hidden = 1; }
+
+      Router.go('play.html', {
+        mode, size, name, start, hidden,
+        hint: 0, import: 0
+      });
+    });
+  });
+
+  document.getElementById('goFree').onclick = ()=> location.href = 'free.html';
+})();
+</script>
+</body>
+</html>

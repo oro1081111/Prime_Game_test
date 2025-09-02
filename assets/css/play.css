@@ -1,0 +1,139 @@
+/* assets/css/play.css */
+
+/* 棋盤 */
+.board-wrap {
+  position: relative;
+  width: min(95vw, var(--maxw));
+  margin: 12px auto;
+}
+.board {
+  display: grid;
+  gap: 2px;
+}
+.cell {
+  border: 1px solid #999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  user-select: none;
+  cursor: pointer;
+  aspect-ratio: 1/1;
+  font-size: clamp(10px, 2.4vw, 16px);
+  transition: background .12s, border-color .12s;
+}
+.cell.fixed { cursor: default; }
+.cell.one {
+  background: #fff0b3;
+  border-color: #e6b800;
+  color: #7a4d00;
+  font-weight: 800;
+}
+.cell.prime {
+  background: #f0e8ff;
+  border-color: #c9b3ff;
+  color: #4b2faf;
+  font-weight: 700;
+}
+.cell.filled { background: #e8f7ff; font-weight: 700; }
+.cell.wrong { animation: shake .22s; }
+@keyframes shake {
+  0% { transform: translateX(0) }
+  50% { transform: translateX(-2px) }
+  100% { transform: translateX(0) }
+}
+
+.cell.next-prime-highlight {
+  border: none !important;
+  background: #e6ffe9 !important;
+  box-shadow: 0 0 0 2px #b9f5c1 inset;
+}
+
+/* HUD */
+.hud {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+#status {
+  margin-top: 10px;
+  font-family: ui-monospace, Consolas, Menlo, monospace;
+  color: #5a4700;
+  text-align: center;
+  font-size: 18px;
+}
+#status.err { color: #b00020; }
+
+/* Overlay */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.55);   /* 單層半透明黑幕 */
+  backdrop-filter: blur(6px);
+  border-radius: 6px;
+}
+.overlay.show { display: flex; }
+
+/* Modal 視窗樣式（單層卡片） */
+.modal {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(0,0,0,.22);  /* 單層陰影 */
+  padding: 24px 28px;
+  width: min(420px, 90%);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.modal .big {
+  font-size: clamp(28px,10vw,120px);
+  font-weight: 900;
+}
+
+/* 段落 */
+.modal p {
+  margin: 8px 0;
+  font-size: 16px;
+  color: #333;
+}
+.modal.success p {
+  margin: 6px 0;
+  color: #555;
+  text-align: left;   /* 成功畫面用左對齊 */
+}
+
+/* 成功視窗：按鈕排版 */
+.modal .row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  gap: 12px;
+  justify-items: center;
+  margin-top: 14px;
+}
+.modal .row .wide {
+  grid-column: 1 / -1;
+}
+
+/* 小螢幕直排 */
+@media (max-width: 480px) {
+  .modal .row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .modal .row .wide { grid-column: auto; }
+  .modal .row button { width: 100%; min-width: 0; }
+}
+
+/* 移除任何多餘的偽元素，避免雙層卡片 */
+.overlay::before,
+.overlay::after,
+.modal::before,
+.modal::after {
+  content: none !important;
+  display: none !important;
+}

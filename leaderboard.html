@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>質數遊戲 - 排行榜</title>
+<style>
+  :root{
+    --brand:#ffbf48;
+    --bg:#f6efe1;
+    --ink:#222;
+    --muted:#666;
+    --card:#fff;
+    --stroke:#e8dfc7;
+    --pill:#fff8e6;
+    --gold:#f5c542; --silver:#c0c7cf; --bronze:#d59a6a;
+    --maxw:960px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Noto Sans,"PingFang TC","Microsoft JhengHei",sans-serif}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:16px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+  h1{font-size:20px;margin:0}
+  .btn{appearance:none;border:0;background:var(--brand);color:#000;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:600}
+  .btn.secondary{background:#fff;border:1px solid var(--stroke)}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
+  .btn:active{transform:translateY(1px)}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 0}
+  .tabgroup{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .tabgroup .label{font-size:14px;color:var(--muted);margin-right:4px}
+  .seg{display:flex;background:#fff;border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
+  .seg button{padding:8px 12px;border:0;background:transparent;cursor:pointer;font-weight:600}
+  .seg button.active{background:var(--brand)}
+  .cards{margin-top:12px;display:grid;grid-template-columns:1fr;gap:10px}
+  @media (min-width:700px){ .cards{grid-template-columns:1fr 1fr} }
+  .card{background:var(--card);border:1px solid var(--stroke);border-radius:12px;padding:12px;display:flex;gap:12px;align-items:center}
+  .rank{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#000;flex:0 0 auto;background:#eee;border:1px solid var(--stroke)}
+  .rank.r1{background:var(--gold)}
+  .rank.r2{background:var(--silver)}
+  .rank.r3{background:var(--bronze)}
+  .meta{flex:1 1 auto;display:flex;flex-direction:column;gap:4px}
+  .titleRow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .name{font-weight:800}
+  .pair{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .kpi{display:flex;gap:6px;align-items:center;background:var(--pill);padding:6px 10px;border:1px solid var(--stroke);border-radius:999px;font-weight:700}
+  .sub{color:var(--muted);font-size:12px}
+  .footerBar{display:flex;gap:10px;justify-content:center;margin:16px 0}
+  .empty{padding:24px;text-align:center;color:var(--muted)}
+  .hint{font-size:12px;color:var(--muted);text-align:center;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>排行榜</h1>
+    <div>
+      <button class="btn secondary" id="btnHome">返回首頁</button>
+      <button class="btn" id="btnPlay">前往挑戰</button>
+    </div>
+  </header>
+
+  <!-- 三層式 Tabs -->
+  <div class="tabs">
+    <div class="tabgroup" id="modeTabs">
+      <span class="label">模式</span>
+      <div class="seg">
+        <button data-mode="basic">基本</button>
+        <button data-mode="hard">困難</button>
+        <button data-mode="hidden">隱藏</button>
+      </div>
+    </div>
+
+    <div class="tabgroup" id="sizeTabs">
+      <span class="label">尺寸</span>
+      <div class="seg">
+        <button data-size="5">5階</button>
+        <button data-size="7">7階</button>
+        <button data-size="10">10階</button>
+      </div>
+    </div>
+
+    <div class="tabgroup" id="sortTabs">
+      <span class="label">排序</span>
+      <div class="seg">
+        <button data-sort="time">時間優先</button>
+        <button data-sort="undo">取消優先</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 清單 -->
+  <div id="cards" class="cards"></div>
+  <div class="hint">同值時以第三鍵 <code>createdAt(伺服器時間)</code> 先後決定名次</div>
+
+  <div class="footerBar">
+    <button class="btn secondary" id="btnMore">載入更多</button>
+  </div>
+</div>
+
+<!-- 主要邏輯（module，直接在 GitHub Pages 可跑） -->
+<script type="module">
+/* ---------------- Firebase 初始化 + 匿名登入 ---------------- */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import {
+  getFirestore, collection, query, where, orderBy, limit, getDocs, startAfter
+} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+import {
+  getAuth, signInAnonymously
+} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAbd97s2tRaR_VJXrBXGlibhMlSTujSl5w",
+  authDomain: "prime-game-58db3.firebaseapp.com",
+  projectId: "prime-game-58db3",
+  storageBucket: "prime-game-58db3.firebasestorage.app",
+  messagingSenderId: "1056693585850",
+  appId: "1:1056693585850:web:a17b5e82a12fa6525bff83",
+  measurementId: "G-0ZLPR7N4FB"
+};
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+const auth = getAuth(app);
+
+/* ---------------- UI/狀態 ---------------- */
+const $  = (s)=>document.querySelector(s);
+const $$ = (s)=>Array.from(document.querySelectorAll(s));
+
+const modeLabel = (m)=> m==='basic'?'基本':(m==='hard'?'困難':'隱藏');
+
+const url = new URL(location.href);
+const initState = {
+  mode: url.searchParams.get('mode') || 'basic',
+  size: +(url.searchParams.get('size') || 5),
+  sort: url.searchParams.get('sort') || 'time', // 'time' | 'undo'
+  pageSize: 50
+};
+
+let state = {
+  ...initState,
+  pages: [],        // 每頁的最後一筆 doc 作為 cursor
+  loading:false,
+  done:false        // 是否已到底
+};
+
+/* ---------------- 工具 ---------------- */
+function setActive(containerSel, attr, val){
+  $$(containerSel + ' .seg button').forEach(b=>{
+    b.classList.toggle('active', b.dataset[attr] == val);
+  });
+}
+function fmtMs(ms){
+  const s = Math.floor(ms/1000), m=Math.floor(s/60), sec=s%60, hundredths=Math.floor((ms%1000)/10);
+  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}.${String(hundredths).padStart(2,'0')}`;
+}
+function paramsToPlay(mode,size){
+  if (mode==='basic')  return `play.html?mode=basic&size=${size}&start=1`;
+  if (mode==='hard')   return `play.html?mode=hard&size=${size}&start=100`;
+  return `play.html?mode=hidden&size=${size}&start=1&hidden=1`;
+}
+
+/* ---------------- 資料抓取（Firestore） ---------------- */
+async function loadNextPage(){
+  if (state.loading || state.done) return;
+  state.loading = true;
+  $('#btnMore').disabled = true;
+
+  try{
+    // 依排序決定 orderBy
+    // time：ms asc -> undos asc -> createdAt asc
+    // undo：undos asc -> ms asc -> createdAt asc
+    const base = [
+      where('mode','==', state.mode),
+      where('size','==', state.size),
+    ];
+    const orders = (state.sort==='time')
+      ? [ orderBy('ms','asc'), orderBy('undos','asc'), orderBy('createdAt','asc') ]
+      : [ orderBy('undos','asc'), orderBy('ms','asc'), orderBy('createdAt','asc') ];
+
+    let qArgs = [ collection(db,'scores'), ...base, ...orders, limit(state.pageSize) ];
+    if (state.pages.length>0){
+      const last = state.pages[state.pages.length-1];
+      qArgs = [ collection(db,'scores'), ...base, ...orders, startAfter(last), limit(state.pageSize) ];
+    }
+
+    const snap = await getDocs( query(...qArgs) );
+    const startIndex = document.querySelectorAll('.card').length;
+
+    if (snap.empty){
+      state.done = true;
+    } else {
+      const docs = snap.docs;
+      state.pages.push(docs[docs.length-1]); // 這頁最後一筆當 cursor
+      renderCards(docs.map((d, i)=>({
+        id:d.id,
+        ...d.data(),
+        rank: startIndex + i + 1
+      })));
+      if (docs.length < state.pageSize) state.done = true;
+    }
+  }catch(err){
+    console.error('讀取排行榜失敗：', err);
+    if ($('#cards').children.length===0){
+      $('#cards').innerHTML = `<div class="empty">讀取失敗或尚無資料</div>`;
+    }
+    state.done = true;
+  }finally{
+    state.loading = false;
+    $('#btnMore').disabled = state.done;
+    $('#btnMore').textContent = state.done ? '沒有更多了' : '載入更多';
+  }
+}
+
+/* ---------------- render ---------------- */
+function renderCards(list){
+  const frag = document.createDocumentFragment();
+  list.forEach(row=>{
+    const div = document.createElement('div');
+    div.className = 'card';
+    const rClass = row.rank===1?'r1':row.rank===2?'r2':row.rank===3?'r3':'';
+    const ts = row.createdAt?.toDate?.();
+    div.innerHTML = `
+      <div class="rank ${rClass}">${row.rank}</div>
+      <div class="meta">
+        <div class="titleRow">
+          <div class="name">${row.name ?? '玩家'}</div>
+          <div class="pair">
+            <div class="kpi"><span>時間</span><span>${fmtMs(row.ms)}</span></div>
+            <div class="kpi"><span>取消</span><span>${row.undos ?? 0}</span></div>
+          </div>
+        </div>
+        <div class="sub">${modeLabel(state.mode)}・${state.size}階　|　${ts ? ts.toLocaleString() : ''}</div>
+      </div>
+    `;
+    frag.appendChild(div);
+  });
+  $('#cards').appendChild(frag);
+}
+function resetAndLoad(){
+  $('#cards').innerHTML = '';
+  state.pages = [];
+  state.done = false;
+  $('#btnMore').disabled = false;
+  $('#btnMore').textContent = '載入更多';
+  setActive('#modeTabs','mode',state.mode);
+  setActive('#sizeTabs','size',state.size);
+  setActive('#sortTabs','sort',state.sort);
+  const u = new URL(location.href);
+  u.searchParams.set('mode',state.mode);
+  u.searchParams.set('size',String(state.size));
+  u.searchParams.set('sort',state.sort);
+  history.replaceState(null,'',u.toString());
+  loadNextPage();
+}
+
+/* ---------------- 事件 ---------------- */
+$('#modeTabs .seg').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  state.mode = b.dataset.mode;
+  resetAndLoad();
+});
+$('#sizeTabs .seg').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  state.size = +b.dataset.size;
+  resetAndLoad();
+});
+$('#sortTabs .seg').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  state.sort = b.dataset.sort;
+  resetAndLoad();
+});
+$('#btnMore').addEventListener('click', loadNextPage);
+$('#btnHome').addEventListener('click', ()=> location.href='index.html');
+$('#btnPlay').addEventListener('click', ()=> location.href = paramsToPlay(state.mode,state.size));
+
+/* ---------------- 啟動（先匿名登入，再載入） ---------------- */
+async function boot(){
+  try{
+    // 若規則開放 read，匿名登入可選；若規則需 auth，這步是必要的
+    await signInAnonymously(auth);
+  }catch(e){
+    console.warn('匿名登入失敗，將以未登入狀態讀取（需 Firestore 規則允許 read）', e);
+  }
+  // 套用 URL 預設 active 樣式並載入
+  setActive('#modeTabs','mode',state.mode);
+  setActive('#sizeTabs','size',state.size);
+  setActive('#sortTabs','sort',state.sort);
+  resetAndLoad();
+}
+boot();
+</script>
+</body>
+</html>
