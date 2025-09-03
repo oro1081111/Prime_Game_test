@@ -49,14 +49,7 @@
   box-shadow: 0 0 0 2px #b9f5c1 inset;
 }
 
-/* HUD */
-.hud {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: center;
-}
+
 #status {
   margin-top: 10px;
   font-family: ui-monospace, Consolas, Menlo, monospace;
@@ -129,10 +122,23 @@
   .modal .row button { width: 100%; min-width: 0; }
 }
 
-.hud {
-  display: flex;
-  gap: 8px;       /* pill 之間左右間距 */
-  margin-bottom: 12px; /* 每一排的下方留空間 */
+/* HUD：每排橫向排列，可自動換行置中 */
+.hud{
+  display:flex;
+  gap:8px;                 /* pill 之間的左右距 */
+  align-items:center;
+  flex-wrap:wrap;
+  justify-content:center;
+}
+
+/* 第二排距離第一排的縱向間距 */
+.hud + .hud{
+  margin-top:12px;
+}
+
+/* 如果還想在第二排與棋盤之間再多留空，可加這行 */
+.hud:last-of-type{
+  margin-bottom:12px;
 }
 
 
