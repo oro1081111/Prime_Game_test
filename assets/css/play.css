@@ -129,6 +129,13 @@
   .modal .row button { width: 100%; min-width: 0; }
 }
 
+.hud {
+  display: flex;
+  gap: 8px;       /* pill 之間左右間距 */
+  margin-bottom: 12px; /* 每一排的下方留空間 */
+}
+
+
 /* 移除任何多餘的偽元素，避免雙層卡片 */
 .overlay::before,
 .overlay::after,
@@ -137,3 +144,4 @@
   content: none !important;
   display: none !important;
 }
+
