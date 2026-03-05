@@ -110,6 +110,7 @@
 }
 .modal .row .wide {
   grid-column: 1 / -1;
+  justify-self: center;
 }
 
 /* 小螢幕直排 */

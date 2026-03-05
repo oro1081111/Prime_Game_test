@@ -1,259 +1,268 @@
 <!doctype html>
 <html lang="zh-Hant">
+
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>質數遊戲 - 遊戲中</title>
   <link rel="stylesheet" href="assets/css/base.css">
   <link rel="stylesheet" href="assets/css/play.css">
 </head>
+
 <body>
-<div class="wrap">
-  <h1 id="title">質數遊戲</h1>
+  <div class="wrap">
+    <h1 id="title">質數遊戲</h1>
 
-  <div class="controls">
-    <div class="controls-row">
-      <button id="gen">開始新遊戲</button>
-      <!-- <button id="pause">暫停</button> -->
-      <button id="backHome">返回首頁</button>
+    <div class="controls">
+      <div class="controls-row">
+        <button id="gen">開始新遊戲</button>
+        <!-- <button id="pause">暫停</button> -->
+        <button id="backHome">返回首頁</button>
+      </div>
     </div>
+
+    <div class="hud">
+      <div class="pill">下一個要填：<b id="nextN">—</b></div>
+      <div class="pill">已填：<span id="progress">0</span>/<span id="total">0</span></div>
+    </div>
+    <div class="hud">
+      <div class="pill">計時：<b id="clock">00:00.00</b></div>
+      <div class="pill">取消次數：<b id="undoCount">0</b></div>
+    </div>
+
+    <div class="board-wrap">
+      <div id="board" class="board"></div>
+      <div id="overlay" class="overlay">
+        <div id="overlayContent" class="modal"></div>
+      </div>
+    </div>
+
+    <p id="status"></p>
+    <footer>© 奧羅桌遊設計工作室 - Prime Game</footer>
   </div>
 
-  <div class="hud">
-    <div class="pill">下一個要填：<b id="nextN">—</b></div>
-    <div class="pill">已填：<span id="progress">0</span>/<span id="total">0</span></div>
-  </div>
-  <div class="hud">
-    <div class="pill">計時：<b id="clock">00:00.00</b></div>
-    <div class="pill">取消次數：<b id="undoCount">0</b></div>
-  </div>
+  <script src="assets/js/router.js"></script>
+  <script>
+    (() => {
+      // ===== 讀取參數 =====
+      const q = Router.getQuery();
+      const MODE = (q.mode || 'basic');
+      const SIZE = parseInt(q.size || '7', 10);
+      const PLAYER = q.name || localStorage.getItem('playerName') || '玩家';
+      const START = parseInt(q.start || '1', 10);
+      const HIDDEN = q.hidden === '1' || q.hidden === 1;
 
-  <div class="board-wrap">
-    <div id="board" class="board"></div>
-    <div id="overlay" class="overlay"><div id="overlayContent" class="modal"></div></div>
-  </div>
+      // ===== 綁定 DOM =====
+      const statusEl = document.getElementById('status');
+      const boardEl = document.getElementById('board');
+      const overlayEl = document.getElementById('overlay');
+      const overlayContent = document.getElementById('overlayContent');
+      const nextNEl = document.getElementById('nextN');
+      const progressEl = document.getElementById('progress');
+      const totalEl = document.getElementById('total');
+      const clockEl = document.getElementById('clock');
+      const undoCountEl = document.getElementById('undoCount');
+      //   const pauseBtn   = document.getElementById('pause');
+      const genBtn = document.getElementById('gen');
+      const backHomeBtn = document.getElementById('backHome');
 
-  <p id="status"></p>
-   <footer>© 奧羅桌遊設計工作室 - Prime Game</footer>
-</div>
+      const modeMap = { basic: '基本', hard: '困難', hidden: '隱藏' };
+      const modeLabel = modeMap[MODE] || '自訂';
+      document.getElementById('title').textContent = `質數遊戲-${modeLabel}${SIZE}階`;
 
-<script src="assets/js/router.js"></script>
-<script>
-(()=> {
-  // ===== 讀取參數 =====
-  const q = Router.getQuery();
-  const MODE   = (q.mode || 'basic');
-  const SIZE   = parseInt(q.size||'7',10);
-  const PLAYER = q.name || localStorage.getItem('playerName') || '玩家';
-  const START  = parseInt(q.start||'1',10);
-  const HIDDEN = q.hidden==='1' || q.hidden===1;
+      // ===== State =====
+      let R = SIZE, C = SIZE, startNum = START, hiddenMode = HIDDEN;
+      let path = [], gridOrder = [];
+      let isFixed = [], filled = [], assigned = [], stack = [];
+      let current = 0, maxVal = 0, totalComposites = 0;
+      let posOf = {};
+      let inputLocked = true; // true = overlay/暫停/尚未開始
+      let gameState = 'idle'; // idle|ready|countdown|running|paused|finished
+      let undoCount = 0, scoreSaved = false;
+      let answerTimer = null;
+      // 防重覆寫入
 
-  // ===== 綁定 DOM =====
-  const statusEl   = document.getElementById('status');
-  const boardEl    = document.getElementById('board');
-  const overlayEl  = document.getElementById('overlay');
-  const overlayContent = document.getElementById('overlayContent');
-  const nextNEl    = document.getElementById('nextN');
-  const progressEl = document.getElementById('progress');
-  const totalEl    = document.getElementById('total');
-  const clockEl    = document.getElementById('clock');
-  const undoCountEl= document.getElementById('undoCount');
-//   const pauseBtn   = document.getElementById('pause');
-  const genBtn     = document.getElementById('gen');
-  const backHomeBtn= document.getElementById('backHome');
+      // ===== 計時器 =====
+      let tStart = 0, tId = null, running = false, elapsedBeforePause = 0;
+      const fmt = (ms) => {
+        const s = Math.floor(ms / 1000);
+        const m = Math.floor(s / 60);
+        const sec = s % 60;
+        const hundredths = Math.floor((ms % 1000) / 10); // 0~99
+        return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(hundredths).padStart(2, '0')}`;
+      };
+      const startTimer = () => {
+        tStart = performance.now();
+        running = true;
+        clearInterval(tId);
+        tId = setInterval(() => {
+          clockEl.textContent = fmt(elapsedBeforePause + (performance.now() - tStart));
+        }, 10);
+      };
+      const stopTimer = () => {
+        if (!running) return;
+        elapsedBeforePause += performance.now() - tStart;
+        running = false;
+        clearInterval(tId);
+        tId = null;
+      };
+      const resetTimer = () => {
+        clearInterval(tId);
+        tId = null;
+        running = false;
+        elapsedBeforePause = 0;
+        clockEl.textContent = fmt(0);
+      };
 
-  const modeMap   = { basic: '基本', hard: '困難', hidden: '隱藏' };
-  const modeLabel = modeMap[MODE] || '自訂';
-  document.getElementById('title').textContent = `質數遊戲-${modeLabel}${SIZE}階`;
+      // ===== 數學工具 =====
+      const isPrime = (n) => { if (n <= 1) return false; if (n === 2) return true; if (n % 2 === 0) return false; for (let i = 3; i * i <= n; i += 2) { if (n % i === 0) return false; } return true; };
+      const isComposite = (n) => n > 1 && !isPrime(n);
+      const nextComposite = (n) => { let k = n + 1; while (k <= maxVal && !isComposite(k)) k++; return k; };
 
-  // ===== State =====
-  let R=SIZE, C=SIZE, startNum=START, hiddenMode=HIDDEN;
-  let path=[], gridOrder=[];
-  let isFixed=[], filled=[], assigned=[], stack=[];
-  let current=0, maxVal=0, totalComposites=0;
-  let posOf={};
-  let inputLocked=true; // true = overlay/暫停/尚未開始
-  let gameState='idle'; // idle|ready|countdown|running|paused|finished
-  let undoCount=0;
-  let scoreSaved=false; // 防重覆寫入
+      // ===== 生路徑 =====
+      function initSnake(R, C) { const p = []; for (let r = 0; r < R; r++) { if (r % 2 === 0) { for (let c = 0; c < C; c++)p.push([r, c]); } else { for (let c = C - 1; c >= 0; c--)p.push([r, c]); } } return p; }
+      function backbite(p, R, C) { const n = p.length; if (n < 4) return false; const useHead = Math.random() < 0.5; const endpoint = useHead ? p[0] : p[n - 1]; const idx = new Map(); for (let i = 0; i < n; i++)idx.set(p[i][0] + "," + p[i][1], i); const ds = [[1, 0], [-1, 0], [0, 1], [0, -1]]; const cand = []; for (const [dr, dc] of ds) { const nr = endpoint[0] + dr, nc = endpoint[1] + dc; if (nr < 0 || nr >= R || nc < 0 || nc >= C) continue; const key = nr + "," + nc; if (!idx.has(key)) continue; const k = idx.get(key); if (useHead) { if (k <= 1) continue; } else { if (k >= n - 2) continue; } cand.push(k); } if (!cand.length) return false; const k = cand[(Math.random() * cand.length) | 0]; if (useHead) { const pre = p.slice(0, k).reverse(); const rest = p.slice(k); p.splice(0, p.length, ...pre, ...rest); } else { const left = p.slice(0, k + 1); const tail = p.slice(k + 1).reverse(); p.splice(0, p.length, ...left, ...tail); } return true; }
 
-  // ===== 計時器 =====
-  let tStart=0, tId=null, running=false, elapsedBeforePause=0;
-  const fmt = (ms)=>{
-    const s = Math.floor(ms/1000);
-    const m = Math.floor(s/60);
-    const sec = s % 60;
-    const hundredths = Math.floor((ms % 1000) / 10); // 0~99
-    return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}.${String(hundredths).padStart(2,'0')}`;
-  };
-  const startTimer = ()=>{
-    tStart = performance.now();
-    running = true;
-    clearInterval(tId);
-    tId = setInterval(()=>{
-      clockEl.textContent = fmt(elapsedBeforePause + (performance.now() - tStart));
-    }, 10);
-  };
-  const stopTimer = () => {
-    if (!running) return;
-    elapsedBeforePause += performance.now() - tStart;
-    running = false;
-    clearInterval(tId);
-    tId = null;
-  };
-  const resetTimer = () => {
-    clearInterval(tId);
-    tId = null;
-    running = false;
-    elapsedBeforePause = 0;
-    clockEl.textContent = fmt(0);
-  };
+      function buildBoard() {
+        boardEl.style.gridTemplateColumns = `repeat(${C}, 1fr)`;
+        boardEl.innerHTML = '';
 
-  // ===== 數學工具 =====
-  const isPrime=(n)=>{if(n<=1)return false;if(n===2)return true;if(n%2===0)return false;for(let i=3;i*i<=n;i+=2){if(n%i===0)return false;}return true;};
-  const isComposite=(n)=> n>1 && !isPrime(n);
-  const nextComposite=(n)=>{let k=n+1;while(k<=maxVal && !isComposite(k))k++;return k;};
+        // 一般模式（非隱藏）才顯示「下一個質數」淡綠高亮
+        let highlightPrime = null;
+        if (!hiddenMode) {
+          for (let k = current + 1; k <= maxVal; k++) { if (isPrime(k)) { highlightPrime = k; break; } }
+        }
 
-  // ===== 生路徑 =====
-  function initSnake(R,C){const p=[];for(let r=0;r<R;r++){if(r%2===0){for(let c=0;c<C;c++)p.push([r,c]);}else{for(let c=C-1;c>=0;c--)p.push([r,c]);}}return p;}
-  function backbite(p,R,C){const n=p.length;if(n<4)return false;const useHead=Math.random()<0.5;const endpoint=useHead?p[0]:p[n-1];const idx=new Map();for(let i=0;i<n;i++)idx.set(p[i][0]+","+p[i][1],i);const ds=[[1,0],[-1,0],[0,1],[0,-1]];const cand=[];for(const [dr,dc] of ds){const nr=endpoint[0]+dr,nc=endpoint[1]+dc;if(nr<0||nr>=R||nc<0||nc>=C)continue;const key=nr+","+nc;if(!idx.has(key))continue;const k=idx.get(key);if(useHead){if(k<=1)continue;}else{if(k>=n-2)continue;}cand.push(k);}if(!cand.length)return false;const k=cand[(Math.random()*cand.length)|0];if(useHead){const pre=p.slice(0,k).reverse();const rest=p.slice(k);p.splice(0,p.length,...pre,...rest);}else{const left=p.slice(0,k+1);const tail=p.slice(k+1).reverse();p.splice(0,p.length,...left,...tail);}return true;}
+        for (let r = 0; r < R; r++) {
+          for (let c = 0; c < C; c++) {
+            const v = gridOrder[r][c];
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.dataset.r = r; cell.dataset.c = c;
 
-  function buildBoard(){
-    boardEl.style.gridTemplateColumns = `repeat(${C}, 1fr)`;
-    boardEl.innerHTML='';
-
-    // 一般模式（非隱藏）才顯示「下一個質數」淡綠高亮
-    let highlightPrime = null;
-    if(!hiddenMode){
-      for(let k=current+1; k<=maxVal; k++) { if(isPrime(k)) { highlightPrime = k; break; } }
-    }
-
-    for(let r=0;r<R;r++){
-      for(let c=0;c<C;c++){
-        const v=gridOrder[r][c];
-        const cell=document.createElement('div');
-        cell.className='cell';
-        cell.dataset.r=r; cell.dataset.c=c;
-
-        if(v===startNum){
-          cell.classList.add('fixed','one');
-          cell.textContent=String(v);
-        } else if (filled[r][c]) {
-          const val = assigned[r][c];
-          if (isPrime(val)) {
-            cell.classList.add('prime');
-          } else {
-            cell.classList.add('filled');
-          }
-          cell.textContent = String(val);
-        } else if(isPrime(v)){
-          cell.classList.add('prime');
-          if(!hiddenMode){
-            cell.classList.add('fixed');
-            cell.textContent=String(v);
-            if(v===highlightPrime) cell.classList.add('next-prime-highlight');
-          } else {
-            cell.textContent='';
+            if (v === startNum) {
+              cell.classList.add('fixed', 'one');
+              cell.textContent = String(v);
+            } else if (filled[r][c]) {
+              const val = assigned[r][c];
+              if (isPrime(val)) {
+                cell.classList.add('prime');
+              } else {
+                cell.classList.add('filled');
+              }
+              cell.textContent = String(val);
+            } else if (isPrime(v)) {
+              cell.classList.add('prime');
+              if (!hiddenMode) {
+                cell.classList.add('fixed');
+                cell.textContent = String(v);
+                if (v === highlightPrime) cell.classList.add('next-prime-highlight');
+              } else {
+                cell.textContent = '';
+              }
+            }
+            boardEl.appendChild(cell);
           }
         }
-        boardEl.appendChild(cell);
       }
-    }
-  }
 
-  function updateHUD(){
-    nextNEl.textContent=current?String(current):'—';
-    progressEl.textContent=String(stack.length);
-    totalEl.textContent=String(totalComposites);
-    undoCountEl.textContent=String(undoCount);
-    buildBoard();
-  }
+      function updateHUD() {
+        nextNEl.textContent = current ? String(current) : '—';
+        progressEl.textContent = String(stack.length);
+        totalEl.textContent = String(totalComposites);
+        undoCountEl.textContent = String(undoCount);
+        buildBoard();
+      }
 
-  function resetState(){
-    isFixed=Array.from({length:R},()=>Array(C).fill(false));
-    filled=Array.from({length:R},()=>Array(C).fill(false));
-    assigned=Array.from({length:R},()=>Array(C).fill(0));
-    stack=[]; posOf={}; undoCount=0;
+      function resetState() {
+        isFixed = Array.from({ length: R }, () => Array(C).fill(false));
+        filled = Array.from({ length: R }, () => Array(C).fill(false));
+        assigned = Array.from({ length: R }, () => Array(C).fill(0));
+        stack = []; posOf = {}; undoCount = 0;
 
-    for(let r=0;r<R;r++){
-      for(let c=0;c<C;c++){
-        const v=gridOrder[r][c];
-        if(hiddenMode){
-          if(v===startNum){ isFixed[r][c]=true; posOf[v]=[r,c]; }
-        }else{
-          if(v===startNum || isPrime(v)){ isFixed[r][c]=true; posOf[v]=[r,c]; }
+        for (let r = 0; r < R; r++) {
+          for (let c = 0; c < C; c++) {
+            const v = gridOrder[r][c];
+            if (hiddenMode) {
+              if (v === startNum) { isFixed[r][c] = true; posOf[v] = [r, c]; }
+            } else {
+              if (v === startNum || isPrime(v)) { isFixed[r][c] = true; posOf[v] = [r, c]; }
+            }
+          }
         }
+
+        maxVal = startNum + R * C - 1;
+
+        if (hiddenMode) {
+          totalComposites = R * C - 1;
+          current = startNum + 1;
+        } else {
+          totalComposites = 0;
+          for (let k = startNum + 1; k <= maxVal; k++) if (isComposite(k)) totalComposites++;
+          current = nextComposite(startNum);
+        }
+
+        updateHUD();
       }
-    }
 
-    maxVal = startNum + R*C - 1;
+      function showOverlay(html, extraClass = '') {
+        overlayContent.className = 'modal';
+        if (extraClass) overlayContent.classList.add(extraClass);
+        overlayContent.innerHTML = html;
+        overlayEl.classList.add('show');
+        inputLocked = true;
+      }
+      function hideOverlay() { overlayEl.classList.remove('show'); overlayContent.innerHTML = ''; }
 
-    if(hiddenMode){
-      totalComposites = R*C - 1;
-      current = startNum + 1;
-    } else {
-      totalComposites = 0;
-      for(let k=startNum+1;k<=maxVal;k++) if(isComposite(k)) totalComposites++;
-      current = nextComposite(startNum);
-    }
-
-    updateHUD();
-  }
-
-  function showOverlay(html, extraClass = '') {
-    overlayContent.className = 'modal';
-    if (extraClass) overlayContent.classList.add(extraClass);
-    overlayContent.innerHTML = html;
-    overlayEl.classList.add('show');
-    inputLocked = true;
-  }
-  function hideOverlay(){overlayEl.classList.remove('show');overlayContent.innerHTML='';}
-
-  function showStartOverlay(){
-    gameState='ready';
-    const rule = hiddenMode
-      ? '隱藏模式：依序填入 <b>所有數字</b>（包含質數）。每一步必須貼著前一數字。<b>當前要填是質數→只能點質數格；是合成數→只能點合成數格</b>。'
-      : '一般模式：依序填入 <b>合成數</b>，每一步必須貼著前一數字；若下一個數字是質數，也要同時貼著該質數。';
-    showOverlay(`
+      function showStartOverlay() {
+        gameState = 'ready';
+        const rule = hiddenMode
+          ? '隱藏模式：依序填入 <b>所有數字</b>（包含質數）。每一步必須貼著前一數字。<b>當前要填是質數→只能點質數格；是合成數→只能點合成數格</b>。'
+          : '一般模式：依序填入 <b>合成數</b>，每一步必須貼著前一數字；若下一個數字是質數，也要同時貼著該質數。';
+        showOverlay(`
       <h2>開始遊戲</h2>
       <p>${rule}</p>
-      <div class="row"><button id="btnStart">點擊開始</button></div>
+      <div class="row"><button id="btnStart" class="wide">點擊開始</button></div>
     `);
-    document.getElementById('btnStart').onclick=()=>startCountdown();
-  }
+        document.getElementById('btnStart').onclick = () => startCountdown();
+      }
 
-  function startCountdown(){
-    gameState='countdown';
-    let n=3;
-    showOverlay(`<div class="big" id="cdNum">${n}</div><p>準備囉…</p>`);
-    const cdNum=document.getElementById('cdNum');
-    const tick=setInterval(()=>{
-      n--; if(n>0){cdNum.textContent=String(n);} else {clearInterval(tick);hideOverlay();inputLocked=false;gameState='running';resetTimer();startTimer();}
-    },1000);
-  }
+      function startCountdown() {
+        gameState = 'countdown';
+        let n = 3;
+        showOverlay(`<div class="big" id="cdNum">${n}</div><p>準備囉…</p>`);
+        const cdNum = document.getElementById('cdNum');
+        const tick = setInterval(() => {
+          n--; if (n > 0) { cdNum.textContent = String(n); } else {
+            clearInterval(tick); hideOverlay(); inputLocked = false; gameState = 'running'; resetTimer(); startTimer();
+          }
+        }, 1000);
+      }
 
-//   function showPaused(){
-//     gameState='paused';
-//     showOverlay(`
-//       <h2>暫停</h2>
-//       <p>目前用時：<b>${clockEl.textContent}</b></p>
-//       <div class="row"><button id="btnResume">繼續</button></div>
-//     `);
-//     document.getElementById('btnResume').onclick=()=>{hideOverlay();inputLocked=false;gameState='running';startTimer();};
-//   }
+      //   function showPaused(){
+      //     gameState='paused';
+      //     showOverlay(`
+      //       <h2>暫停</h2>
+      //       <p>目前用時：<b>${clockEl.textContent}</b></p>
+      //       <div class="row"><button id="btnResume">繼續</button></div>
+      //     `);
+      //     document.getElementById('btnResume').onclick=()=>{hideOverlay();inputLocked=false;gameState='running';startTimer();};
+      //   }
 
-  // === 完成畫面＋寫入 + 計算排名 ===
-  function showSuccess(){
-    if (scoreSaved) return;
-    gameState='finished';
-    stopTimer();
+      // === 完成畫面＋寫入 + 計算排名 ===
+      function showSuccess() {
+        if (scoreSaved) return;
+        gameState = 'finished';
+        stopTimer();
+        const pauseBtn = document.getElementById('pause');
+        if (pauseBtn) pauseBtn.disabled = true;
 
-    const totalMsRounded = Math.round(elapsedBeforePause / 10) * 10;
-    const time = fmt(totalMsRounded);
-    const rankSpanId = 'rankTextSpan';
+        const totalMsRounded = Math.round(elapsedBeforePause / 10) * 10;
+        const time = fmt(totalMsRounded);
+        const rankSpanId = 'rankTextSpan';
 
-    // 先顯示占位
-    showOverlay(`
+        // 先顯示占位
+        showOverlay(`
       <h2>成功完成！</h2>
       <p>模式：<b>${modeLabel}${SIZE}階</b></p>
       <p>玩家：<b>${PLAYER}</b></p>
@@ -265,240 +274,281 @@
         <button id="btnHome">返回首頁</button>
         <button id="btnLB" class="wide">查看排行榜</button>
       </div>
-    `,'success');
+    `, 'success');
 
-    document.getElementById('btnAgain').onclick = () => { hideOverlay(); generate(); };
-    document.getElementById('btnHome').onclick  = () => { location.href='index.html'; };
-    document.getElementById('btnLB').onclick    = () => {
-      location.href = `leaderboard.html?mode=${MODE}&size=${SIZE}`;
+        document.getElementById('btnAgain').onclick = () => { hideOverlay(); generate(); };
+        document.getElementById('btnHome').onclick = () => { location.href = 'index.html'; };
+        document.getElementById('btnLB').onclick = () => {
+          location.href = `leaderboard.html?mode=${MODE}&size=${SIZE}`;
+        };
+
+        // 非阻塞地寫入並計算名次
+        if (window.saveScoreAndRank && !scoreSaved) {
+          scoreSaved = true;
+          window.saveScoreAndRank({
+            mode: MODE,
+            size: SIZE,
+            name: PLAYER,
+            ms: totalMsRounded,
+            undos: undoCount,
+            onRank: (rankLabel) => {
+              const span = document.getElementById(rankSpanId);
+              if (span) span.textContent = rankLabel;
+            }
+          }).catch(err => {
+            const span = document.getElementById(rankSpanId);
+            if (span) span.textContent = '—（計算失敗）';
+            console.error(err);
+          });
+        }
+      }
+
+      function tryShake(el) { el.classList.add('wrong'); setTimeout(() => el.classList.remove('wrong'), 220); }
+
+      function generate() {
+        try {
+          resetTimer(); inputLocked = true; gameState = 'idle';
+          undoCount = 0; undoCountEl.textContent = '0'; scoreSaved = false;
+          if (answerTimer) { clearInterval(answerTimer); answerTimer = null; }
+
+          // 生成隨機哈密頓路徑
+          path = initSnake(R, C);
+          if (Math.random() < 0.5) path.reverse();
+          const iters = Math.max(1, 20 * R * C);
+          for (let i = 0; i < iters; i++) backbite(path, R, C);
+
+          gridOrder = Array.from({ length: R }, () => Array(C).fill(0));
+          path.forEach((pt, i) => { gridOrder[pt[0]][pt[1]] = startNum + i; });
+
+          resetState();
+          statusEl.className = '';
+          showStartOverlay();
+        } catch (err) { statusEl.className = 'err'; statusEl.textContent = 'Error: ' + err.message; }
+      }
+
+      // 落子/撤銷
+      boardEl.addEventListener('click', (e) => {
+        const cell = e.target.closest('.cell'); if (!cell) return;
+        if (inputLocked) return;
+        if (gameState !== 'running') return;
+
+        const r = +cell.dataset.r, c = +cell.dataset.c;
+        const v = gridOrder[r][c];
+
+        // 固定不可點（起始格；一般模式還有所有質數）
+        if (isFixed[r][c]) return;
+
+        // 撤銷
+        if (filled[r][c]) {
+          const idx = stack.findIndex(([rr, cc]) => rr === r && cc === c);
+          if (idx !== -1) {
+            for (let i = stack.length - 1; i >= idx; i--) {
+              const [rr, cc] = stack[i];
+              const delVal = assigned[rr][cc];
+              filled[rr][cc] = false; assigned[rr][cc] = 0; delete posOf[delVal];
+            }
+            stack = stack.slice(0, idx);
+            undoCount++; undoCountEl.textContent = String(undoCount);
+
+            let last = startNum;
+            if (stack.length) { const [lr, lc] = stack[stack.length - 1]; last = assigned[lr][lc]; }
+            current = hiddenMode ? (last + 1) : nextComposite(last);
+            updateHUD();
+          }
+          return;
+        }
+
+        // 隱藏模式型態限制
+        if (hiddenMode) {
+          const needPrime = isPrime(current);
+          const targetPrime = isPrime(v);
+          if (needPrime !== targetPrime) { tryShake(cell); return; }
+        }
+
+        // 必須貼著 (current-1)
+        if (current > maxVal) return;
+        const prev = current - 1; const prevPos = posOf[prev]; if (!prevPos) { tryShake(cell); return; }
+        const adjPrev = (Math.abs(prevPos[0] - r) + Math.abs(prevPos[1] - c) === 1); if (!adjPrev) { tryShake(cell); return; }
+
+        // 一般模式：若 (current+1) 是質數，也要同時貼著它
+        if (!hiddenMode) {
+          const nxt = current + 1;
+          if (nxt <= maxVal && isPrime(nxt)) {
+            const nxtPos = posOf[nxt];
+            const adjNext = nxtPos && (Math.abs(nxtPos[0] - r) + Math.abs(nxtPos[1] - c) === 1);
+            if (!adjNext) { tryShake(cell); return; }
+          }
+        }
+
+        // 放置 current
+        filled[r][c] = true;
+        assigned[r][c] = current;
+        stack.push([r, c]);
+        posOf[current] = [r, c];
+
+        // 即時 UI
+        const domCell = boardEl.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+        if (domCell) {
+          domCell.textContent = String(current);
+          if (isPrime(current)) {
+            domCell.classList.remove('filled');
+            domCell.classList.add('prime');
+          } else {
+            domCell.classList.add('filled');
+          }
+          if (current === startNum) domCell.classList.add('one');
+        }
+
+        current = hiddenMode ? (current + 1) : nextComposite(current);
+        updateHUD();
+
+        if (stack.length === totalComposites) {
+          stopTimer();
+          inputLocked = true;
+          statusEl.textContent = '挑戰成功！正在回顧路徑...';
+          const pauseBtn = document.getElementById('pause');
+          if (pauseBtn) pauseBtn.disabled = true;
+
+          // 新增：先清空盤面（非固定格），讓回顧動畫清晰可見
+          for (let r = 0; r < R; r++) {
+            for (let c = 0; c < C; c++) {
+              if (!isFixed[r][c]) {
+                filled[r][c] = false;
+                assigned[r][c] = 0;
+              }
+            }
+          }
+          updateHUD();
+
+          let k = 0;
+          const allCells = [];
+          for (let r = 0; r < R; r++) {
+            for (let c = 0; c < C; c++) {
+              allCells.push({ r, c, val: gridOrder[r][c] });
+            }
+          }
+          allCells.sort((a, b) => a.val - b.val);
+
+          answerTimer = setInterval(() => {
+            if (k < allCells.length) {
+              const { r, c, val } = allCells[k];
+              filled[r][c] = true;
+              assigned[r][c] = val;
+              k++;
+              updateHUD();
+            } else {
+              clearInterval(answerTimer);
+              answerTimer = null;
+              showSuccess();
+            }
+          }, 30);
+        }
+      });
+
+      // 按鈕
+      genBtn.onclick = generate;
+      //   pauseBtn.onclick=()=>{
+      //     if(gameState==='running'){ stopTimer(); inputLocked=true; showPaused(); }
+      //     else if(gameState==='paused'){ hideOverlay(); inputLocked=false; gameState='running'; startTimer(); }
+      //   };
+      backHomeBtn.onclick = () => { location.href = 'index.html'; };
+
+      // init
+      generate();
+    })();
+  </script>
+
+  <!-- === Firebase：初始化、匿名登入、寫入與名次計算 === -->
+  <!-- === Firebase：初始化、匿名登入、寫入與名次計算（修正版，先確保登入） === -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+    import {
+      getFirestore, collection, addDoc, serverTimestamp, doc, getDoc,
+      query, where, orderBy, limit, getDocs
+    } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAbd97s2tRaR_VJXrBXGlibhMlSTujSl5w",
+      authDomain: "prime-game-58db3.firebaseapp.com",
+      projectId: "prime-game-58db3",
+      storageBucket: "prime-game-58db3.firebasestorage.app",
+      messagingSenderId: "1056693585850",
+      appId: "1:1056693585850:web:a17b5e82a12fa6525bff83",
+      measurementId: "G-0ZLPR7N4FB"
     };
 
-    // 非阻塞地寫入並計算名次
-    if (window.saveScoreAndRank && !scoreSaved) {
-      scoreSaved = true;
-      window.saveScoreAndRank({
-        mode:  MODE,
-        size:  SIZE,
-        name:  PLAYER,
-        ms:    totalMsRounded,
-        undos: undoCount,
-        onRank: (rankLabel) => {
-          const span = document.getElementById(rankSpanId);
-          if (span) span.textContent = rankLabel;
-        }
-      }).catch(err=>{
-        const span = document.getElementById(rankSpanId);
-        if (span) span.textContent = '—（計算失敗）';
-        console.error(err);
-      });
-    }
-  }
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-  function tryShake(el){ el.classList.add('wrong'); setTimeout(()=>el.classList.remove('wrong'),220); }
-
-  function generate(){
-    try{
-      resetTimer(); inputLocked=true; gameState='idle';
-      undoCount = 0; undoCountEl.textContent='0'; scoreSaved=false;
-
-      // 生成隨機哈密頓路徑
-      path = initSnake(R,C);
-      if(Math.random()<0.5) path.reverse();
-      const rot = (Math.random()*path.length)|0; path = path.slice(rot).concat(path.slice(0,rot));
-      const iters = Math.max(1, 20*R*C);
-      for(let i=0;i<iters;i++) backbite(path,R,C);
-
-      gridOrder = Array.from({length:R},()=>Array(C).fill(0));
-      path.forEach((pt,i)=>{ gridOrder[pt[0]][pt[1]] = startNum + i; });
-
-      resetState();
-      statusEl.className='';
-      showStartOverlay();
-    }catch(err){ statusEl.className='err'; statusEl.textContent='Error: '+err.message; }
-  }
-
-  // 落子/撤銷
-  boardEl.addEventListener('click',(e)=>{
-    const cell=e.target.closest('.cell'); if(!cell)return;
-    if(inputLocked)return;
-    if(gameState!=='running')return;
-
-    const r=+cell.dataset.r, c=+cell.dataset.c;
-    const v=gridOrder[r][c];
-
-    // 固定不可點（起始格；一般模式還有所有質數）
-    if(isFixed[r][c]) return;
-
-    // 撤銷
-    if(filled[r][c]){
-      const idx=stack.findIndex(([rr,cc])=>rr===r&&cc===c);
-      if(idx!==-1){
-        for(let i=stack.length-1;i>=idx;i--){
-          const [rr,cc]=stack[i];
-          const delVal=assigned[rr][cc];
-          filled[rr][cc]=false; assigned[rr][cc]=0; delete posOf[delVal];
-        }
-        stack=stack.slice(0,idx);
-        undoCount++; undoCountEl.textContent=String(undoCount);
-
-        let last=startNum;
-        if(stack.length){const [lr,lc]=stack[stack.length-1]; last=assigned[lr][lc];}
-        current = hiddenMode ? (last+1) : nextComposite(last);
-        updateHUD();
-      }
-      return;
-    }
-
-    // 隱藏模式型態限制
-    if(hiddenMode){
-      const needPrime = isPrime(current);
-      const targetPrime = isPrime(v);
-      if(needPrime !== targetPrime){ tryShake(cell); return; }
-    }
-
-    // 必須貼著 (current-1)
-    if(current>maxVal) return;
-    const prev=current-1; const prevPos=posOf[prev]; if(!prevPos){tryShake(cell);return;}
-    const adjPrev=(Math.abs(prevPos[0]-r)+Math.abs(prevPos[1]-c)===1); if(!adjPrev){tryShake(cell);return;}
-
-    // 一般模式：若 (current+1) 是質數，也要同時貼著它
-    if(!hiddenMode){
-      const nxt=current+1;
-      if(nxt<=maxVal && isPrime(nxt)){
-        const nxtPos=posOf[nxt];
-        const adjNext=nxtPos&&(Math.abs(nxtPos[0]-r)+Math.abs(nxtPos[1]-c)===1);
-        if(!adjNext){tryShake(cell);return;}
-      }
-    }
-
-    // 放置 current
-    filled[r][c]=true;
-    assigned[r][c]=current;
-    stack.push([r,c]);
-    posOf[current]=[r,c];
-
-    // 即時 UI
-    const domCell = boardEl.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
-    if(domCell){
-      domCell.textContent = String(current);
-      if (isPrime(current)) {
-        domCell.classList.remove('filled');
-        domCell.classList.add('prime');
-      } else {
-        domCell.classList.add('filled');
-      }
-      if (current === startNum) domCell.classList.add('one');
-    }
-
-    current = hiddenMode ? (current+1) : nextComposite(current);
-    updateHUD();
-
-    if(stack.length===totalComposites){ stopTimer(); showSuccess(); }
-  });
-
-  // 按鈕
-  genBtn.onclick = generate;
-//   pauseBtn.onclick=()=>{
-//     if(gameState==='running'){ stopTimer(); inputLocked=true; showPaused(); }
-//     else if(gameState==='paused'){ hideOverlay(); inputLocked=false; gameState='running'; startTimer(); }
-//   };
-  backHomeBtn.onclick = () => { location.href = 'index.html'; };
-
-  // init
-  generate();
-})();
-</script>
-
-<!-- === Firebase：初始化、匿名登入、寫入與名次計算 === -->
-<!-- === Firebase：初始化、匿名登入、寫入與名次計算（修正版，先確保登入） === -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
-  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
-  import {
-    getFirestore, collection, addDoc, serverTimestamp, doc, getDoc,
-    query, where, orderBy, limit, getDocs
-  } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyAbd97s2tRaR_VJXrBXGlibhMlSTujSl5w",
-    authDomain: "prime-game-58db3.firebaseapp.com",
-    projectId: "prime-game-58db3",
-    storageBucket: "prime-game-58db3.firebasestorage.app",
-    messagingSenderId: "1056693585850",
-    appId: "1:1056693585850:web:a17b5e82a12fa6525bff83",
-    measurementId: "G-0ZLPR7N4FB"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-
-  // 1) 建一個保證拿到 uid 的流程（只登入一次，之後快取）
-  let authReady = null;
-  async function ensureAuth() {
-    if (auth.currentUser) return auth.currentUser;
-    if (!authReady) {
-      authReady = (async () => {
-        try {
-          await signInAnonymously(auth);
-          // 等待 Firebase 寫好 currentUser（很快）
-          let tries = 0;
-          while (!auth.currentUser && tries++ < 20) {
-            await new Promise(r => setTimeout(r, 50));
+    // 1) 建一個保證拿到 uid 的流程（只登入一次，之後快取）
+    let authReady = null;
+    async function ensureAuth() {
+      if (auth.currentUser) return auth.currentUser;
+      if (!authReady) {
+        authReady = (async () => {
+          try {
+            await signInAnonymously(auth);
+            // 等待 Firebase 寫好 currentUser（很快）
+            let tries = 0;
+            while (!auth.currentUser && tries++ < 20) {
+              await new Promise(r => setTimeout(r, 50));
+            }
+            if (!auth.currentUser) throw new Error('Anonymous sign-in not ready');
+            return auth.currentUser;
+          } catch (e) {
+            console.error('匿名登入失敗', e);
+            throw e;
           }
-          if (!auth.currentUser) throw new Error('Anonymous sign-in not ready');
-          return auth.currentUser;
-        } catch (e) {
-          console.error('匿名登入失敗', e);
-          throw e;
-        }
-      })();
+        })();
+      }
+      return authReady;
     }
-    return authReady;
-  }
 
-  // 2) 寫入 + 計算名次
-  async function saveScoreAndRank({ mode, size, name, ms, undos, onRank }) {
-    // (A) 先確保已登入，取得 uid
-    const user = await ensureAuth();
+    // 2) 寫入 + 計算名次
+    async function saveScoreAndRank({ mode, size, name, ms, undos, onRank }) {
+      // (A) 先確保已登入，取得 uid
+      const user = await ensureAuth();
 
-    // (B) 寫入（createdAt 用 serverTimestamp 以符合規則）
-    const docRef = await addDoc(collection(db, 'scores'), {
-      mode, size, name,
-      ms: Number(ms),
-      undos: Number(undos),
-      createdAt: serverTimestamp(),
-      uid: user.uid
-    });
+      // (B) 寫入（createdAt 用 serverTimestamp 以符合規則）
+      const docRef = await addDoc(collection(db, 'scores'), {
+        mode, size, name,
+        ms: Number(ms),
+        undos: Number(undos),
+        createdAt: serverTimestamp(),
+        uid: user.uid
+      });
 
-    // (C) 讀回自己的 createdAt（serverTimestamp 需讀一次才有值）
-    const snap = await getDoc(doc(db, 'scores', docRef.id));
-    const my = { id: docRef.id, ms: Number(ms), undos: Number(undos), createdAt: snap.data()?.createdAt };
+      // (C) 讀回自己的 createdAt（serverTimestamp 需讀一次才有值）
+      const snap = await getDoc(doc(db, 'scores', docRef.id));
+      const my = { id: docRef.id, ms: Number(ms), undos: Number(undos), createdAt: snap.data()?.createdAt };
 
-    // (D) 查同 mode/size 的前 1000 名，排序規則：ms ↑, undos ↑, createdAt ↑
-    const q = query(
-      collection(db, 'scores'),
-      where('mode', '==', mode),
-      where('size', '==', size),
-      orderBy('ms', 'asc'),
-      orderBy('undos', 'asc'),
-      orderBy('createdAt', 'asc'),
-      limit(1000)
-    );
+      // (D) 查同 mode/size 的前 1000 名，排序規則：ms ↑, undos ↑, createdAt ↑
+      const q = query(
+        collection(db, 'scores'),
+        where('mode', '==', mode),
+        where('size', '==', size),
+        orderBy('ms', 'asc'),
+        orderBy('undos', 'asc'),
+        orderBy('createdAt', 'asc'),
+        limit(1000)
+      );
 
-    // 注意：若瀏覽器 Console 出現「requires an index」字樣，點連結建立索引即可
-    const list = await getDocs(q);
+      // 注意：若瀏覽器 Console 出現「requires an index」字樣，點連結建立索引即可
+      const list = await getDocs(q);
 
-    let rank = null, idx = 0;
-    list.forEach(d => { idx++; if (d.id === my.id) rank = idx; });
-    const label = (rank !== null) ? `第 ${rank} 名` : '第 1000+ 名';
-    if (typeof onRank === 'function') onRank(label);
-  }
+      let rank = null, idx = 0;
+      list.forEach(d => { idx++; if (d.id === my.id) rank = idx; });
+      const label = (rank !== null) ? `第 ${rank} 名` : '第 1000+ 名';
+      if (typeof onRank === 'function') onRank(label);
+    }
 
-  // 暴露給遊戲邏輯呼叫
-  window.saveScoreAndRank = saveScoreAndRank;
-</script>
+    // 暴露給遊戲邏輯呼叫
+    window.saveScoreAndRank = saveScoreAndRank;
+  </script>
 
 
 </body>
+
 </html>
