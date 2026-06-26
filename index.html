@@ -145,11 +145,28 @@
     return v;
   }
 
+  async function ensureGoogleLogin(){
+    const auth = window.PrimeAuth;
+    if (!auth) {
+      alert('登入系統尚未準備好，請稍後再試。');
+      return false;
+    }
+    await auth.ready;
+    if (auth.isGoogleSignedIn()) return true;
+    try {
+      await auth.signInWithGoogle();
+      return auth.isGoogleSignedIn();
+    } catch (e) {
+      return false;
+    }
+  }
+
   // 模式按鈕 → 導向 play.html
   document.querySelectorAll('button[data-mode]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
+    btn.addEventListener('click', async ()=>{
       const name = ensureName();
       if(!name) return;
+      if (!(await ensureGoogleLogin())) return;
 
       const mode = btn.dataset.mode;
       const size = parseInt(btn.dataset.size,10);
@@ -163,9 +180,10 @@
   });
 
   // 自由模式
-  document.getElementById('goFree').onclick = ()=>{
+  document.getElementById('goFree').onclick = async ()=>{
     const name = ensureName();
     if(!name) return;
+    if (!(await ensureGoogleLogin())) return;
     location.href = 'free.html';
   };
 
@@ -187,8 +205,8 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import {
-  getAuth, signInAnonymously, GoogleAuthProvider,
-  linkWithPopup, signInWithPopup, signOut, onAuthStateChanged
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut,
+  onAuthStateChanged, setPersistence, browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 
 const firebaseConfig = {
@@ -204,15 +222,37 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const gp = new GoogleAuthProvider();
 let currentUser = null;
+let resolveAuthReady;
+const authReady = new Promise(resolve => { resolveAuthReady = resolve; });
+let authReadyResolved = false;
+
+function markAuthReady() {
+  if (!authReadyResolved) {
+    authReadyResolved = true;
+    resolveAuthReady();
+  }
+}
+
+async function signInWithGoogle() {
+  const result = await signInWithPopup(auth, gp);
+  currentUser = result.user;
+  updateAuthUI(currentUser);
+  return currentUser;
+}
+
+window.PrimeAuth = {
+  ready: authReady,
+  isGoogleSignedIn: () => !!currentUser && !currentUser.isAnonymous,
+  signInWithGoogle
+};
 
 function updateAuthUI(user) {
   const st = document.getElementById('authStatus');
   const signinBtn = document.getElementById('btnGoogleSignIn');
   const signoutBtn = document.getElementById('btnSignOut');
   if (!st) return;
-  if (!user) { st.textContent = '連線中…'; return; }
-  if (user.isAnonymous) {
-    st.textContent = '匿名';
+  if (!user || user.isAnonymous) {
+    st.textContent = '尚未登入';
     if (signinBtn) signinBtn.style.display = '';
     if (signoutBtn) signoutBtn.style.display = 'none';
   } else {
@@ -223,26 +263,21 @@ function updateAuthUI(user) {
   }
 }
 
-onAuthStateChanged(auth, user => {
-  if (user) { currentUser = user; updateAuthUI(user); }
-  else { signInAnonymously(auth).catch(e => console.error('匿名登入失敗', e)); }
+setPersistence(auth, browserLocalPersistence).catch(e => {
+  console.error('登入保存設定失敗', e);
+}).finally(() => {
+  onAuthStateChanged(auth, user => {
+    currentUser = user || null;
+    updateAuthUI(currentUser);
+    markAuthReady();
+  });
 });
 
 document.getElementById('btnGoogleSignIn')?.addEventListener('click', async () => {
-  if (!currentUser) return;
   try {
-    const result = await linkWithPopup(currentUser, gp);
-    currentUser = result.user;
-    updateAuthUI(currentUser);
+    await signInWithGoogle();
   } catch (e) {
-    if (e.code === 'auth/credential-already-in-use') {
-      if (confirm('此 Google 帳號已有排行榜紀錄。切換至該帳號？\n（目前匿名紀錄將丟失）')) {
-        try {
-          const r = await signInWithPopup(auth, gp);
-          currentUser = r.user; updateAuthUI(currentUser);
-        } catch (e2) { if (e2.code !== 'auth/popup-closed-by-user') console.error(e2); }
-      }
-    } else if (e.code !== 'auth/popup-closed-by-user') {
+    if (e.code !== 'auth/popup-closed-by-user') {
       console.error('Google 登入失敗', e);
     }
   }
@@ -250,7 +285,6 @@ document.getElementById('btnGoogleSignIn')?.addEventListener('click', async () =
 
 document.getElementById('btnSignOut')?.addEventListener('click', async () => {
   await signOut(auth);
-  // onAuthStateChanged 會接到 null 並自動重新匿名登入
 });
 </script>
 </body>

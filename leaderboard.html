@@ -98,7 +98,10 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import {
+  getAuth, signInAnonymously, onAuthStateChanged,
+  setPersistence, browserLocalPersistence
+} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAbd97s2tRaR_VJXrBXGlibhMlSTujSl5w",
@@ -277,7 +280,14 @@ $('#btnPlay').addEventListener('click', ()=> location.href = paramsToPlay(state.
 
 async function boot(){
   try{
-    await signInAnonymously(auth);
+    await setPersistence(auth, browserLocalPersistence);
+    const initialUser = await new Promise(resolve => {
+      const unsub = onAuthStateChanged(auth, user => {
+        unsub();
+        resolve(user);
+      });
+    });
+    if (!initialUser) await signInAnonymously(auth);
   }catch(e){
     console.warn('匿名登入失敗，將以未登入狀態讀取（需 Firestore 規則允許 read）', e);
   }

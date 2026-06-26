@@ -494,6 +494,36 @@
     <p id="status"></p>
   </div>
 
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+    import {
+      getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence
+    } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAbd97s2tRaR_VJXrBXGlibhMlSTujSl5w",
+      authDomain: "prime-game-58db3.firebaseapp.com",
+      projectId: "prime-game-58db3",
+      storageBucket: "prime-game-58db3.firebasestorage.app",
+      messagingSenderId: "1056693585850",
+      appId: "1:1056693585850:web:a17b5e82a12fa6525bff83"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    setPersistence(auth, browserLocalPersistence).catch(e => {
+      console.error('登入保存設定失敗', e);
+    }).finally(() => {
+      onAuthStateChanged(auth, user => {
+        if (!user || user.isAnonymous) {
+          alert('請先使用 Google 登入才能遊玩。');
+          location.href = 'index.html';
+        }
+      });
+    });
+  </script>
+
   <script>
     (() => {
       const rowsEl = document.getElementById('rows');
