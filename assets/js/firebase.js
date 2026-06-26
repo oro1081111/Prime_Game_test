@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import {
   getFirestore, doc, getDoc, setDoc, serverTimestamp,
-  collection, query, where, orderBy, limit, getDocs, startAfter
+  collection, getDocs
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 export const firebaseConfig = {
@@ -15,6 +15,36 @@ export const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+
+function timestampMs(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value.toDate === 'function') return value.toDate().getTime();
+  return Number(value) || 0;
+}
+
+function scoreTime(row) {
+  return timestampMs(row.updatedAt || row.createdAt);
+}
+
+function compareRows(a, b, lb) {
+  if (lb === 'time') {
+    return (a.ms - b.ms)
+      || ((a.undos || 0) - (b.undos || 0))
+      || (scoreTime(a) - scoreTime(b));
+  }
+  return ((a.undos || 0) - (b.undos || 0))
+    || (a.ms - b.ms)
+    || (scoreTime(a) - scoreTime(b));
+}
+
+async function fetchScoreRows({ mode, size, lb = 'time' }) {
+  const snap = await getDocs(collection(db, 'scores'));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(row => row.mode === mode && Number(row.size) === Number(size) && row.kind === lb)
+    .sort((a, b) => compareRows(a, b, lb));
+}
 
 /**
  * 寫入個人最佳成績（時間槽 / 取消槽各一 doc，以 setDoc 覆寫）
@@ -49,21 +79,17 @@ export async function submitScore({ uid, name, mode, size, ms, undos }) {
  * lb: 'time' | 'undo'
  */
 export async function fetchLeaderboard({ mode, size, lb = 'time', pageSize = 50, cursor = null }) {
-  const base = [
-    where('mode', '==', mode),
-    where('size', '==', size),
-    where('kind', '==', lb),
-  ];
-  const orders = (lb === 'time')
-    ? [orderBy('ms', 'asc'), orderBy('undos', 'asc'), orderBy('updatedAt', 'asc')]
-    : [orderBy('undos', 'asc'), orderBy('ms', 'asc'), orderBy('updatedAt', 'asc')];
-
-  let q = query(collection(db, 'scores'), ...base, ...orders, limit(pageSize));
-  if (cursor) q = query(q, startAfter(cursor));
-
-  const snap = await getDocs(q);
-  const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  const nextCursor = snap.docs[snap.docs.length - 1] || null;
+  const start = Number(cursor || 0);
+  const rankedRows = (await fetchScoreRows({ mode, size, lb }))
+    .map((row, i) => ({ ...row, rank: i + 1 }));
+  const rows = rankedRows.slice(start, start + pageSize);
+  const nextCursor = start + pageSize < rankedRows.length ? start + pageSize : null;
 
   return { rows, cursor: nextCursor };
+}
+
+export async function calculateTimeRank({ mode, size, timeId }) {
+  const rows = await fetchScoreRows({ mode, size, lb: 'time' });
+  const index = rows.findIndex(row => row.id === timeId);
+  return index === -1 ? null : index + 1;
 }
