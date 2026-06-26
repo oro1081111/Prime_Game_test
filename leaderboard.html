@@ -40,19 +40,12 @@
   .rank.r3{background:var(--bronze)}
   .meta{flex:1 1 auto;display:flex;flex-direction:column;gap:4px}
   .titleRow{display:flex;align-items:center;justify-content:space-between;gap:10px}
-  .name {
-    font-weight: 700;   /* 可以保持粗體或改成正常 */
-    font-size: 14px;    /* 調整字體大小，比14px小一點 */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100px;   /* 限制寬度避免換行，可依需求調整 */
-    }
+  .name{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px}
   .pair{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
-  .kpi{display:flex;gap:6px;align-items:center;background:var(--pill);padding:6px 10px;border:1px solid var(--stroke);border-radius:999px;font-size:12px; font-weight:700}
+  .kpi{display:flex;gap:6px;align-items:center;background:var(--pill);padding:6px 10px;border:1px solid var(--stroke);border-radius:999px;font-size:12px;font-weight:700}
   .sub{color:var(--muted);font-size:12px}
   .footerBar{display:flex;gap:10px;justify-content:center;margin:16px 0}
-  .empty{padding:24px;text-align:center;color:var(--muted)}
+  .empty{padding:24px;text-align:center;color:var(--muted);grid-column:1/-1}
   .hint{font-size:12px;color:var(--muted);text-align:center;margin-top:4px}
 </style>
 </head>
@@ -66,7 +59,6 @@
     </div>
   </header>
 
-  <!-- 三層式 Tabs -->
   <div class="tabs">
     <div class="tabgroup" id="modeTabs">
       <span class="label">模式</span>
@@ -95,26 +87,18 @@
     </div>
   </div>
 
-  <!-- 清單 -->
   <div id="cards" class="cards"></div>
   <div class="hint">平手時依序比較 <code>用時</code> → <code>取消次數</code> → <code>較早達成</code></div>
 
   <div class="footerBar">
     <button class="btn secondary" id="btnMore">載入更多</button>
   </div>
-  
 </div>
 
-<!-- 主要邏輯（module，直接在 GitHub Pages 可跑） -->
 <script type="module">
-/* ---------------- Firebase 初始化 + 匿名登入 ---------------- */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import {
-  getFirestore, collection, query, where, orderBy, limit, getDocs, startAfter
-} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
-import {
-  getAuth, signInAnonymously
-} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAbd97s2tRaR_VJXrBXGlibhMlSTujSl5w",
@@ -126,11 +110,10 @@ const firebaseConfig = {
   measurementId: "G-0ZLPR7N4FB"
 };
 const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
+const db = getFirestore(app);
 const auth = getAuth(app);
 
-/* ---------------- UI/狀態 ---------------- */
-const $  = (s)=>document.querySelector(s);
+const $ = (s)=>document.querySelector(s);
 const $$ = (s)=>Array.from(document.querySelectorAll(s));
 
 const modeLabel = (m)=> m==='basic'?'基本':(m==='hard'?'困難':'隱藏');
@@ -139,75 +122,88 @@ const url = new URL(location.href);
 const initState = {
   mode: url.searchParams.get('mode') || 'basic',
   size: +(url.searchParams.get('size') || 5),
-  lb: url.searchParams.get('lb') || 'time', // 'time' | 'undo'
+  lb: url.searchParams.get('lb') || 'time',
   pageSize: 50
 };
 
 let state = {
   ...initState,
-  pages: [],        // 每頁的最後一筆 doc 作為 cursor
-  loading:false,
-  done:false        // 是否已到底
+  rows: [],
+  page: 0,
+  loading: false,
+  done: false
 };
 
-/* ---------------- 工具 ---------------- */
 function setActive(containerSel, attr, val){
   $$(containerSel + ' .seg button').forEach(b=>{
     b.classList.toggle('active', b.dataset[attr] == val);
   });
 }
 function fmtMs(ms){
-  const s = Math.floor(ms/1000), m=Math.floor(s/60), sec=s%60, hundredths=Math.floor((ms%1000)/10);
+  const value = Number(ms || 0);
+  const s = Math.floor(value/1000), m=Math.floor(s/60), sec=s%60, hundredths=Math.floor((value%1000)/10);
   return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}.${String(hundredths).padStart(2,'0')}`;
 }
 function paramsToPlay(mode,size){
-  if (mode==='basic')  return `play.html?mode=basic&size=${size}&start=1`;
-  if (mode==='hard')   return `play.html?mode=hard&size=${size}&start=105`;
+  if (mode==='basic') return `play.html?mode=basic&size=${size}&start=1`;
+  if (mode==='hard') return `play.html?mode=hard&size=${size}&start=105`;
   return `play.html?mode=hidden&size=${size}&start=1&hidden=1`;
 }
+function timestampMs(value){
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value.toDate === 'function') return value.toDate().getTime();
+  return Number(value) || 0;
+}
+function scoreTime(row){
+  return timestampMs(row.updatedAt || row.createdAt);
+}
+function escapeHtml(value){
+  return String(value ?? '').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+}
+function compareRows(a,b){
+  if (state.lb === 'time') {
+    return (a.ms - b.ms) || ((a.undos || 0) - (b.undos || 0)) || (scoreTime(a) - scoreTime(b));
+  }
+  return ((a.undos || 0) - (b.undos || 0)) || (a.ms - b.ms) || (scoreTime(a) - scoreTime(b));
+}
 
-/* ---------------- 資料抓取（Firestore） ---------------- */
+async function fetchLeaderboardRows(){
+  const snap = await getDocs(collection(db, 'scores'));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(row => row.mode === state.mode && Number(row.size) === Number(state.size) && row.kind === state.lb)
+    .sort(compareRows)
+    .map((row, i) => ({ ...row, rank: i + 1 }));
+}
+
 async function loadNextPage(){
   if (state.loading || state.done) return;
   state.loading = true;
   $('#btnMore').disabled = true;
 
   try{
-    // 依榜別過濾 kind，各榜排序：time：ms→undos→updatedAt；undo：undos→ms→updatedAt
-    const base = [
-      where('mode','==', state.mode),
-      where('size','==', state.size),
-      where('kind','==', state.lb),
-    ];
-    const orders = (state.lb==='time')
-      ? [ orderBy('ms','asc'), orderBy('undos','asc'), orderBy('updatedAt','asc') ]
-      : [ orderBy('undos','asc'), orderBy('ms','asc'), orderBy('updatedAt','asc') ];
-
-    let qArgs = [ collection(db,'scores'), ...base, ...orders, limit(state.pageSize) ];
-    if (state.pages.length>0){
-      const last = state.pages[state.pages.length-1];
-      qArgs = [ collection(db,'scores'), ...base, ...orders, startAfter(last), limit(state.pageSize) ];
+    if (state.page === 0 && state.rows.length === 0) {
+      state.rows = await fetchLeaderboardRows();
     }
 
-    const snap = await getDocs( query(...qArgs) );
-    const startIndex = document.querySelectorAll('.card').length;
+    const start = state.page * state.pageSize;
+    const pageRows = state.rows.slice(start, start + state.pageSize);
 
-    if (snap.empty){
+    if (pageRows.length === 0) {
       state.done = true;
+      if ($('#cards').children.length === 0) {
+        $('#cards').innerHTML = `<div class="empty">目前沒有排行榜資料</div>`;
+      }
     } else {
-      const docs = snap.docs;
-      state.pages.push(docs[docs.length-1]); // 這頁最後一筆當 cursor
-      renderCards(docs.map((d, i)=>({
-        id:d.id,
-        ...d.data(),
-        rank: startIndex + i + 1
-      })));
-      if (docs.length < state.pageSize) state.done = true;
+      renderCards(pageRows);
+      state.page++;
+      if (state.page * state.pageSize >= state.rows.length) state.done = true;
     }
   }catch(err){
     console.error('讀取排行榜失敗：', err);
     if ($('#cards').children.length===0){
-      $('#cards').innerHTML = `<div class="empty">讀取失敗或尚無資料</div>`;
+      $('#cards').innerHTML = `<div class="empty">讀取失敗，請稍後再試</div>`;
     }
     state.done = true;
   }finally{
@@ -217,19 +213,19 @@ async function loadNextPage(){
   }
 }
 
-/* ---------------- render ---------------- */
 function renderCards(list){
   const frag = document.createDocumentFragment();
   list.forEach(row=>{
     const div = document.createElement('div');
     div.className = 'card';
     const rClass = row.rank===1?'r1':row.rank===2?'r2':row.rank===3?'r3':'';
-    const ts = row.createdAt?.toDate?.();
+    const tsValue = row.updatedAt || row.createdAt;
+    const ts = tsValue?.toDate?.();
     div.innerHTML = `
       <div class="rank ${rClass}">${row.rank}</div>
       <div class="meta">
         <div class="titleRow">
-          <div class="name">${row.name ?? '玩家'}</div>
+          <div class="name">${escapeHtml(row.name || '玩家')}</div>
           <div class="pair">
             <div class="kpi"><span>時間</span><span>${fmtMs(row.ms)}</span></div>
             <div class="kpi"><span>取消</span><span>${row.undos ?? 0}</span></div>
@@ -244,7 +240,8 @@ function renderCards(list){
 }
 function resetAndLoad(){
   $('#cards').innerHTML = '';
-  state.pages = [];
+  state.rows = [];
+  state.page = 0;
   state.done = false;
   $('#btnMore').disabled = false;
   $('#btnMore').textContent = '載入更多';
@@ -259,7 +256,6 @@ function resetAndLoad(){
   loadNextPage();
 }
 
-/* ---------------- 事件 ---------------- */
 $('#modeTabs .seg').addEventListener('click', e=>{
   const b = e.target.closest('button'); if(!b) return;
   state.mode = b.dataset.mode;
@@ -279,15 +275,12 @@ $('#btnMore').addEventListener('click', loadNextPage);
 $('#btnHome').addEventListener('click', ()=> location.href='index.html');
 $('#btnPlay').addEventListener('click', ()=> location.href = paramsToPlay(state.mode,state.size));
 
-/* ---------------- 啟動（先匿名登入，再載入） ---------------- */
 async function boot(){
   try{
-    // 若規則開放 read，匿名登入可選；若規則需 auth，這步是必要的
     await signInAnonymously(auth);
   }catch(e){
     console.warn('匿名登入失敗，將以未登入狀態讀取（需 Firestore 規則允許 read）', e);
   }
-  // 套用 URL 預設 active 樣式並載入
   setActive('#modeTabs','mode',state.mode);
   setActive('#sizeTabs','size',state.size);
   setActive('#lbTabs','lb',state.lb);
