@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>質數遊戲 - 遊戲介紹</title>
+  <link rel="stylesheet" href="assets/css/base.css">
+  <style>
+    .about {
+      text-align: left;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    .about .card {
+      margin: 14px 0;
+      line-height: 1.8;
+    }
+
+    .about h2 {
+      font-size: 20px;
+      border-left: 5px solid var(--brand);
+      padding-left: 10px;
+      margin: 4px 0 12px;
+    }
+
+    .about h3 {
+      font-size: 16px;
+      margin: 14px 0 6px;
+      color: #5a4700;
+    }
+
+    .about p {
+      margin: 8px 0;
+      color: #333;
+    }
+
+    .about ul {
+      margin: 8px 0;
+      padding-left: 22px;
+    }
+
+    .about li {
+      margin: 6px 0;
+    }
+
+    .about .note {
+      background: #fff8e6;
+      border: 1px solid #e7cf86;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 14px;
+      color: #5a4700;
+    }
+
+    .about code {
+      background: #f0e8ff;
+      color: #4b2faf;
+      padding: 1px 6px;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+
+    /* 小型示意棋盤 */
+    .demo-board {
+      display: grid;
+      grid-template-columns: repeat(4, 44px);
+      gap: 4px;
+      justify-content: center;
+      margin: 14px auto;
+    }
+
+    .demo-board .cell {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #999;
+      border-radius: 6px;
+      background: #fff;
+      font-weight: 700;
+      font-size: 15px;
+      position: relative;
+    }
+
+    .demo-board .cell.prime {
+      background: #f0e8ff;
+      border-color: #c9b3ff;
+      color: #4b2faf;
+    }
+
+    .demo-board .cell.start {
+      background: #fff0b3;
+      border-color: #e6b800;
+      color: #7a4d00;
+    }
+
+    .demo-board .cell.path {
+      background: #e8f7ff;
+    }
+
+    .legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+      font-size: 13px;
+      color: #555;
+      margin-top: 8px;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .swatch {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1px solid #999;
+      display: inline-block;
+    }
+
+    .swatch.prime {
+      background: #f0e8ff;
+      border-color: #c9b3ff;
+    }
+
+    .swatch.start {
+      background: #fff0b3;
+      border-color: #e6b800;
+    }
+
+    .swatch.path {
+      background: #e8f7ff;
+    }
+
+    .topbar {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>遊戲介紹</h1>
+    <div class="topbar">
+      <button class="secondary" id="backHome">返回首頁</button>
+      <button id="goPlay">開始遊玩</button>
+    </div>
+
+    <div class="about">
+      <!-- 一、遊戲是什麼 -->
+      <div class="card">
+        <h2>一、這是什麼遊戲？</h2>
+        <p>
+          <b>漢米爾頓-質數遊戲</b> 是一款結合<b>質數</b>與<b>漢米爾頓路徑（Hamiltonian Path）</b>
+          的邏輯解謎遊戲。你要在方格盤面上，依照數字順序走出一條<b>不重複、且每步都相鄰</b>的路徑，
+          把所有格子串連起來。
+        </p>
+        <p>
+          盤面上的<b>質數</b>位置是固定提示，你的任務是把中間的<b>合成數</b>依序填入，
+          讓整條路徑首尾相接、一氣呵成。
+        </p>
+      </div>
+
+      <!-- 二、基本規則 -->
+      <div class="card">
+        <h2>二、遊戲規則</h2>
+        <h3>核心目標</h3>
+        <p>從起始數字開始，依序填入接下來的數字，直到所有格子都被填滿，形成一條完整的路徑。</p>
+
+        <h3>一般模式（基本 / 困難）</h3>
+        <ul>
+          <li>盤面已標示所有<b>質數</b>的位置（紫色格）。</li>
+          <li>你要依序填入<b>合成數</b>，每填一格，必須<b>緊鄰（上下左右）</b>前一個數字。</li>
+          <li>若下一個數字是質數，當前這格也必須<b>同時緊鄰那個質數</b>，確保路徑連續。</li>
+          <li>填滿所有合成數即<b>挑戰成功</b>。</li>
+        </ul>
+
+        <h3>隱藏模式</h3>
+        <ul>
+          <li>只顯示<b>質數的位置</b>，但不顯示任何數字。</li>
+          <li>你要依序填入<b>所有數字</b>（含質數）：當前該填質數時只能點質數格，該填合成數時只能點合成數格。</li>
+          <li>更考驗你對路徑與質數分布的直覺與記憶。</li>
+        </ul>
+
+        <h3>難度差異</h3>
+        <ul>
+          <li><b>基本模式</b>：從 <code>1</code> 開始，質數密度較高，提示較多。</li>
+          <li><b>困難模式</b>：從 <code>105</code> 開始，質數變稀疏，需要更多推理。</li>
+          <li><b>盤面大小</b>：5階、7階、10階，越大越具挑戰性。</li>
+        </ul>
+
+        <div class="note">
+          💡 點選已填入的格子可<b>悔棋</b>（會一併撤回其後的步驟），遊戲會記錄你的取消次數與用時，
+          作為排行榜評分依據。
+        </div>
+      </div>
+
+      <!-- 三、示意圖 -->
+      <div class="card">
+        <h2>三、路徑示意</h2>
+        <p>以一個 4×4 的小盤面為例，數字 1→16 形成一條相鄰且不重複的路徑：</p>
+        <div class="demo-board" id="demoBoard"></div>
+        <div class="legend">
+          <span><i class="swatch start"></i> 起始格</span>
+          <span><i class="swatch prime"></i> 質數</span>
+          <span><i class="swatch path"></i> 路徑（合成數）</span>
+        </div>
+      </div>
+
+      <!-- 四、數學介紹 -->
+      <div class="card">
+        <h2>四、漢米爾頓路徑的數學</h2>
+        <h3>什麼是漢米爾頓路徑？</h3>
+        <p>
+          在<b>圖論（Graph Theory）</b>中，一張圖由<b>頂點（vertex）</b>與連接頂點的<b>邊（edge）</b>組成。
+          一條<b>漢米爾頓路徑</b>是指：一條<b>恰好經過每個頂點一次</b>的路徑。
+          若這條路徑的起點與終點還相連、形成一個環，則稱為<b>漢米爾頓迴路（Hamiltonian Cycle）</b>。
+        </p>
+        <p>
+          這個概念由 19 世紀愛爾蘭數學家
+          <b>威廉·哈密頓（William Rowan Hamilton）</b> 提出，他曾設計一款「環遊世界」的益智遊戲，
+          要求玩家沿著正十二面體的稜邊，不重複地走訪每個頂點。
+        </p>
+
+        <h3>在這個遊戲裡</h3>
+        <ul>
+          <li>每個<b>格子</b>是一個<b>頂點</b>。</li>
+          <li>上下左右相鄰的兩格之間有一條<b>邊</b>（形成「格狀圖 / grid graph」）。</li>
+          <li>你依序填入數字所走出的，正是一條<b>漢米爾頓路徑</b>——不重複地經過每一格。</li>
+        </ul>
+
+        <h3>為什麼有挑戰性？</h3>
+        <p>
+          判斷一張任意圖是否存在漢米爾頓路徑，是著名的 <b>NP-完全（NP-complete）</b> 問題之一，
+          意思是目前沒有已知的「快速」通用解法；隨著規模變大，可能的路徑數量會<b>爆炸性成長</b>。
+          這正是它作為謎題既迷人又燒腦的原因。
+        </p>
+
+        <h3>質數扮演什麼角色？</h3>
+        <p>
+          <b>質數</b>是只能被 1 與自己整除的大於 1 的整數（如 2, 3, 5, 7, 11…）。
+          本遊戲把質數的位置當作固定<b>路標</b>：因為質數在數線上的分布並不規律，
+          它們把路徑切成一段段，迫使你在「連續性」與「質數約束」之間找到唯一解，
+          讓單純的路徑謎題多了一層數論趣味。
+        </p>
+
+        <div class="note">
+          🧮 小結：這款遊戲把抽象的「漢米爾頓路徑」變成可以動手玩的格子謎題，
+          再用「質數分布」增加限制與變化——是圖論與數論的一次有趣相遇。
+        </div>
+      </div>
+
+      <div class="topbar" style="margin:18px 0;">
+        <button class="secondary" id="backHome2">返回首頁</button>
+        <button id="goPlay2">開始遊玩</button>
+      </div>
+    </div>
+
+    <footer>© 奧羅桌遊設計工作室 - Prime Game</footer>
+  </div>
+
+  <script>
+    (function () {
+      // 4×4 示意盤面：值為路徑順序，標出起始格與質數
+      const isPrime = (n) => { if (n <= 1) return false; if (n === 2) return true; if (n % 2 === 0) return false; for (let i = 3; i * i <= n; i += 2) if (n % i === 0) return false; return true; };
+      // 一條手排的 4×4 漢米爾頓路徑（蛇形變化），值即填入順序 1..16
+      const layout = [
+        1, 2, 3, 4,
+        8, 7, 6, 5,
+        9, 10, 11, 12,
+        16, 15, 14, 13
+      ];
+      const board = document.getElementById('demoBoard');
+      layout.forEach((v) => {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.textContent = String(v);
+        if (v === 1) cell.classList.add('start');
+        else if (isPrime(v)) cell.classList.add('prime');
+        else cell.classList.add('path');
+        board.appendChild(cell);
+      });
+
+      const home = () => location.href = 'index.html';
+      const play = () => location.href = 'index.html#modes';
+      document.getElementById('backHome').onclick = home;
+      document.getElementById('backHome2').onclick = home;
+      document.getElementById('goPlay').onclick = home;
+      document.getElementById('goPlay2').onclick = home;
+    })();
+  </script>
+</body>
+
+</html>

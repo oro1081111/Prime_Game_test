@@ -51,6 +51,8 @@
         <input id="playerName" type="text" placeholder="你的名字">
       </label>
       <button id="saveName" class="secondary btn">儲存名稱</button>
+      <!-- 遊戲介紹按鈕 -->
+      <button id="goAbout" class="btn secondary">遊戲介紹</button>
       <!-- 新增排行榜按鈕，與儲存名稱並排 -->
       <button id="goLeaderboard" class="btn">查看排行榜</button>
     </div>
@@ -113,6 +115,7 @@
   const nameInput = document.getElementById('playerName');
   const saveBtn   = document.getElementById('saveName');
   const lbBtn     = document.getElementById('goLeaderboard');
+  const aboutBtn  = document.getElementById('goAbout');
 
   const stored = localStorage.getItem('playerName') || '';
   if (stored) nameInput.value = stored;
@@ -158,6 +161,11 @@
     const name = ensureName();
     if(!name) return;
     location.href = 'free.html';
+  };
+
+  // 遊戲介紹（不需先輸入名稱）
+  aboutBtn.onclick = ()=>{
+    location.href = 'about.html';
   };
 
   // 查看排行榜
