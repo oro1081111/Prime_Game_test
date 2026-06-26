@@ -1,7 +1,16 @@
 /* assets/css/base.css */
 :root{ --maxw:1000px; --brand:#ffbf48; }
 *{ box-sizing:border-box; }
-body{ margin:0; padding:16px; font-family:system-ui,sans-serif; background:#f6efe1; color:#222; }
+body{
+  margin:0;
+  /* 基本 16px 邊距，並在有瀏海/圓角的裝置上加上安全區，避免內容被遮擋 */
+  padding:
+    max(16px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+  font-family:system-ui,sans-serif; background:#f6efe1; color:#222;
+}
 .wrap{ max-width:var(--maxw); margin:0 auto; text-align:center; }
 h1,h2,h3{ margin:0 0 .5rem; }
 .controls{ display:flex; flex-direction:column; gap:8px; margin:12px 0; align-items:center; }

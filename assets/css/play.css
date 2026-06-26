@@ -3,7 +3,8 @@
 /* 棋盤 */
 .board-wrap {
   position: relative;
-  width: min(95vw, var(--maxw));
+  /* 用容器寬度（100%）而非 95vw，避免在 body 有邊距時超出容器、導致無法置中 */
+  width: min(100%, var(--maxw));
   margin: 12px auto;
 }
 .board {

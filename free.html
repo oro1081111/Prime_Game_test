@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>質數遊戲-自由模式</title>
   <style>
     :root {
@@ -12,7 +12,11 @@
 
     body {
       margin: 0;
-      padding: 16px;
+      padding:
+        max(16px, env(safe-area-inset-top))
+        max(16px, env(safe-area-inset-right))
+        max(16px, env(safe-area-inset-bottom))
+        max(16px, env(safe-area-inset-left));
       font-family: system-ui, sans-serif;
       background: #f6efe1;
       color: #222
@@ -61,8 +65,8 @@
 
     .board-wrap {
       position: relative;
-      width: min(95vw, var(--maxw));
-      margin: 12px 0
+      width: min(100%, var(--maxw));
+      margin: 12px auto
     }
 
     .board {
@@ -343,7 +347,7 @@
     }
 
     .board-wrap {
-      width: min(95vw, 1000px);
+      width: min(100%, 1000px);
       margin: 12px auto;
     }
 
