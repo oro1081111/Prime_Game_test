@@ -48,7 +48,6 @@
   <script src="assets/js/router.js"></script>
   <script>
     (() => {
-      // ===== 讀取參數 =====
       const q = Router.getQuery();
       const MODE = (q.mode || 'basic');
       const SIZE = parseInt(q.size || '7', 10);
@@ -56,7 +55,6 @@
       const START = parseInt(q.start || '1', 10);
       const HIDDEN = q.hidden === '1' || q.hidden === 1;
 
-      // ===== 綁定 DOM =====
       const statusEl = document.getElementById('status');
       const boardEl = document.getElementById('board');
       const overlayEl = document.getElementById('overlay');
@@ -66,7 +64,6 @@
       const totalEl = document.getElementById('total');
       const clockEl = document.getElementById('clock');
       const undoCountEl = document.getElementById('undoCount');
-      //   const pauseBtn   = document.getElementById('pause');
       const genBtn = document.getElementById('gen');
       const backHomeBtn = document.getElementById('backHome');
 
@@ -74,25 +71,22 @@
       const modeLabel = modeMap[MODE] || '自訂';
       document.getElementById('title').textContent = `質數遊戲-${modeLabel}${SIZE}階`;
 
-      // ===== State =====
       let R = SIZE, C = SIZE, startNum = START, hiddenMode = HIDDEN;
       let path = [], gridOrder = [];
       let isFixed = [], filled = [], assigned = [], stack = [];
       let current = 0, maxVal = 0, totalComposites = 0;
       let posOf = {};
-      let inputLocked = true; // true = overlay/暫停/尚未開始
-      let gameState = 'idle'; // idle|ready|countdown|running|paused|finished
+      let inputLocked = true;
+      let gameState = 'idle';
       let undoCount = 0, scoreSaved = false;
       let answerTimer = null;
-      // 防重覆寫入
 
-      // ===== 計時器 =====
       let tStart = 0, tId = null, running = false, elapsedBeforePause = 0;
       const fmt = (ms) => {
         const s = Math.floor(ms / 1000);
         const m = Math.floor(s / 60);
         const sec = s % 60;
-        const hundredths = Math.floor((ms % 1000) / 10); // 0~99
+        const hundredths = Math.floor((ms % 1000) / 10);
         return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(hundredths).padStart(2, '0')}`;
       };
       const startTimer = () => {
@@ -118,42 +112,33 @@
         clockEl.textContent = fmt(0);
       };
 
-      // ===== 數學工具 =====
       const isPrime = (n) => { if (n <= 1) return false; if (n === 2) return true; if (n % 2 === 0) return false; for (let i = 3; i * i <= n; i += 2) { if (n % i === 0) return false; } return true; };
       const isComposite = (n) => n > 1 && !isPrime(n);
       const nextComposite = (n) => { let k = n + 1; while (k <= maxVal && !isComposite(k)) k++; return k; };
 
-      // ===== 生路徑 =====
       function initSnake(R, C) { const p = []; for (let r = 0; r < R; r++) { if (r % 2 === 0) { for (let c = 0; c < C; c++)p.push([r, c]); } else { for (let c = C - 1; c >= 0; c--)p.push([r, c]); } } return p; }
       function backbite(p, R, C) { const n = p.length; if (n < 4) return false; const useHead = Math.random() < 0.5; const endpoint = useHead ? p[0] : p[n - 1]; const idx = new Map(); for (let i = 0; i < n; i++)idx.set(p[i][0] + "," + p[i][1], i); const ds = [[1, 0], [-1, 0], [0, 1], [0, -1]]; const cand = []; for (const [dr, dc] of ds) { const nr = endpoint[0] + dr, nc = endpoint[1] + dc; if (nr < 0 || nr >= R || nc < 0 || nc >= C) continue; const key = nr + "," + nc; if (!idx.has(key)) continue; const k = idx.get(key); if (useHead) { if (k <= 1) continue; } else { if (k >= n - 2) continue; } cand.push(k); } if (!cand.length) return false; const k = cand[(Math.random() * cand.length) | 0]; if (useHead) { const pre = p.slice(0, k).reverse(); const rest = p.slice(k); p.splice(0, p.length, ...pre, ...rest); } else { const left = p.slice(0, k + 1); const tail = p.slice(k + 1).reverse(); p.splice(0, p.length, ...left, ...tail); } return true; }
 
       function buildBoard() {
         boardEl.style.gridTemplateColumns = `repeat(${C}, 1fr)`;
         boardEl.innerHTML = '';
-
-        // 一般模式（非隱藏）才顯示「下一個質數」淡綠高亮
         let highlightPrime = null;
         if (!hiddenMode) {
           for (let k = current + 1; k <= maxVal; k++) { if (isPrime(k)) { highlightPrime = k; break; } }
         }
-
         for (let r = 0; r < R; r++) {
           for (let c = 0; c < C; c++) {
             const v = gridOrder[r][c];
             const cell = document.createElement('div');
             cell.className = 'cell';
             cell.dataset.r = r; cell.dataset.c = c;
-
             if (v === startNum) {
               cell.classList.add('fixed', 'one');
               cell.textContent = String(v);
             } else if (filled[r][c]) {
               const val = assigned[r][c];
-              if (isPrime(val)) {
-                cell.classList.add('prime');
-              } else {
-                cell.classList.add('filled');
-              }
+              if (isPrime(val)) cell.classList.add('prime');
+              else cell.classList.add('filled');
               cell.textContent = String(val);
             } else if (isPrime(v)) {
               cell.classList.add('prime');
@@ -183,7 +168,6 @@
         filled = Array.from({ length: R }, () => Array(C).fill(false));
         assigned = Array.from({ length: R }, () => Array(C).fill(0));
         stack = []; posOf = {}; undoCount = 0;
-
         for (let r = 0; r < R; r++) {
           for (let c = 0; c < C; c++) {
             const v = gridOrder[r][c];
@@ -194,9 +178,7 @@
             }
           }
         }
-
         maxVal = startNum + R * C - 1;
-
         if (hiddenMode) {
           totalComposites = R * C - 1;
           current = startNum + 1;
@@ -205,7 +187,6 @@
           for (let k = startNum + 1; k <= maxVal; k++) if (isComposite(k)) totalComposites++;
           current = nextComposite(startNum);
         }
-
         updateHUD();
       }
 
@@ -243,17 +224,6 @@
         }, 1000);
       }
 
-      //   function showPaused(){
-      //     gameState='paused';
-      //     showOverlay(`
-      //       <h2>暫停</h2>
-      //       <p>目前用時：<b>${clockEl.textContent}</b></p>
-      //       <div class="row"><button id="btnResume">繼續</button></div>
-      //     `);
-      //     document.getElementById('btnResume').onclick=()=>{hideOverlay();inputLocked=false;gameState='running';startTimer();};
-      //   }
-
-      // === 完成畫面＋寫入 + 計算排名 ===
       function showSuccess() {
         if (scoreSaved) return;
         scoreSaved = true;
@@ -261,10 +231,8 @@
         stopTimer();
         const pauseBtn = document.getElementById('pause');
         if (pauseBtn) pauseBtn.disabled = true;
-
         const totalMsRounded = Math.round(elapsedBeforePause / 10) * 10;
         const time = fmt(totalMsRounded);
-
         showOverlay(`
       <h2>成功完成！</h2>
       <p>模式：<b>${modeLabel}${SIZE}階</b>　玩家：<b>${PLAYER}</b></p>
@@ -276,13 +244,9 @@
         <button id="btnLB" class="wide">查看排行榜</button>
       </div>
     `, 'success');
-
         document.getElementById('btnAgain').onclick = () => { hideOverlay(); generate(); };
         document.getElementById('btnHome').onclick = () => { location.href = 'index.html'; };
-        document.getElementById('btnLB').onclick = () => {
-          location.href = `leaderboard.html?mode=${MODE}&size=${SIZE}`;
-        };
-
+        document.getElementById('btnLB').onclick = () => { location.href = `leaderboard.html?mode=${MODE}&size=${SIZE}`; };
         if (window.saveScoreAndRank) {
           window.saveScoreAndRank({
             mode: MODE, size: SIZE, name: PLAYER,
@@ -321,35 +285,25 @@
           resetTimer(); inputLocked = true; gameState = 'idle';
           undoCount = 0; undoCountEl.textContent = '0'; scoreSaved = false;
           if (answerTimer) { clearInterval(answerTimer); answerTimer = null; }
-
-          // 生成隨機哈密頓路徑
           path = initSnake(R, C);
           if (Math.random() < 0.5) path.reverse();
           const iters = Math.max(1, 20 * R * C);
           for (let i = 0; i < iters; i++) backbite(path, R, C);
-
           gridOrder = Array.from({ length: R }, () => Array(C).fill(0));
           path.forEach((pt, i) => { gridOrder[pt[0]][pt[1]] = startNum + i; });
-
           resetState();
           statusEl.className = '';
           showStartOverlay();
         } catch (err) { statusEl.className = 'err'; statusEl.textContent = 'Error: ' + err.message; }
       }
 
-      // 落子/撤銷
       boardEl.addEventListener('click', (e) => {
         const cell = e.target.closest('.cell'); if (!cell) return;
         if (inputLocked) return;
         if (gameState !== 'running') return;
-
         const r = +cell.dataset.r, c = +cell.dataset.c;
         const v = gridOrder[r][c];
-
-        // 固定不可點（起始格；一般模式還有所有質數）
         if (isFixed[r][c]) return;
-
-        // 撤銷
         if (filled[r][c]) {
           const idx = stack.findIndex(([rr, cc]) => rr === r && cc === c);
           if (idx !== -1) {
@@ -360,7 +314,6 @@
             }
             stack = stack.slice(0, idx);
             undoCount++; undoCountEl.textContent = String(undoCount);
-
             let last = startNum;
             if (stack.length) { const [lr, lc] = stack[stack.length - 1]; last = assigned[lr][lc]; }
             current = hiddenMode ? (last + 1) : nextComposite(last);
@@ -368,20 +321,14 @@
           }
           return;
         }
-
-        // 隱藏模式型態限制
         if (hiddenMode) {
           const needPrime = isPrime(current);
           const targetPrime = isPrime(v);
           if (needPrime !== targetPrime) { tryShake(cell); return; }
         }
-
-        // 必須貼著 (current-1)
         if (current > maxVal) return;
         const prev = current - 1; const prevPos = posOf[prev]; if (!prevPos) { tryShake(cell); return; }
         const adjPrev = (Math.abs(prevPos[0] - r) + Math.abs(prevPos[1] - c) === 1); if (!adjPrev) { tryShake(cell); return; }
-
-        // 一般模式：若 (current+1) 是質數，也要同時貼著它
         if (!hiddenMode) {
           const nxt = current + 1;
           if (nxt <= maxVal && isPrime(nxt)) {
@@ -390,14 +337,10 @@
             if (!adjNext) { tryShake(cell); return; }
           }
         }
-
-        // 放置 current
         filled[r][c] = true;
         assigned[r][c] = current;
         stack.push([r, c]);
         posOf[current] = [r, c];
-
-        // 即時 UI
         const domCell = boardEl.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
         if (domCell) {
           domCell.textContent = String(current);
@@ -409,18 +352,14 @@
           }
           if (current === startNum) domCell.classList.add('one');
         }
-
         current = hiddenMode ? (current + 1) : nextComposite(current);
         updateHUD();
-
         if (stack.length === totalComposites) {
           stopTimer();
           inputLocked = true;
           statusEl.textContent = '挑戰成功！正在回顧路徑...';
           const pauseBtn = document.getElementById('pause');
           if (pauseBtn) pauseBtn.disabled = true;
-
-          // 新增：先清空盤面（非固定格），讓回顧動畫清晰可見
           for (let r = 0; r < R; r++) {
             for (let c = 0; c < C; c++) {
               if (!isFixed[r][c]) {
@@ -430,16 +369,12 @@
             }
           }
           updateHUD();
-
           let k = 0;
           const allCells = [];
           for (let r = 0; r < R; r++) {
-            for (let c = 0; c < C; c++) {
-              allCells.push({ r, c, val: gridOrder[r][c] });
-            }
+            for (let c = 0; c < C; c++) allCells.push({ r, c, val: gridOrder[r][c] });
           }
           allCells.sort((a, b) => a.val - b.val);
-
           answerTimer = setInterval(() => {
             if (k < allCells.length) {
               const { r, c, val } = allCells[k];
@@ -456,20 +391,12 @@
         }
       });
 
-      // 按鈕
       genBtn.onclick = generate;
-      //   pauseBtn.onclick=()=>{
-      //     if(gameState==='running'){ stopTimer(); inputLocked=true; showPaused(); }
-      //     else if(gameState==='paused'){ hideOverlay(); inputLocked=false; gameState='running'; startTimer(); }
-      //   };
       backHomeBtn.onclick = () => { location.href = 'index.html'; };
-
-      // init
       generate();
     })();
   </script>
 
-  <!-- === Firebase：身份驗證（匿名 + Google）、寫入個人最佳、計算排名 === -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
     import {
@@ -478,7 +405,7 @@
     } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
     import {
       getFirestore, doc, getDoc, setDoc, serverTimestamp,
-      collection, query, where, orderBy, limit, getDocs
+      collection, getDocs
     } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -494,10 +421,8 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
     const gp = new GoogleAuthProvider();
-
     let currentUser = null;
 
-    // 更新 HUD 的登入狀態顯示
     function updateAuthUI(user) {
       const st = document.getElementById('authStatus');
       const lb = document.getElementById('btnLinkGoogle');
@@ -513,13 +438,11 @@
       }
     }
 
-    // 監聽登入狀態：無登入時自動匿名登入
     onAuthStateChanged(auth, user => {
       if (user) { currentUser = user; updateAuthUI(user); }
       else { signInAnonymously(auth).catch(e => console.error('匿名登入失敗', e)); }
     });
 
-    // 綁定 Google 按鈕
     document.getElementById('btnLinkGoogle')?.addEventListener('click', async () => {
       if (!currentUser) return;
       try {
@@ -540,7 +463,6 @@
       }
     });
 
-    // 等待登入完成
     function ensureAuth() {
       if (currentUser) return Promise.resolve(currentUser);
       return new Promise((resolve, reject) => {
@@ -551,15 +473,33 @@
       });
     }
 
-    // 寫入個人最佳 + 計算排名
-    // 每位玩家每個 mode+size 固定兩個 doc（時間槽 / 取消槽），以 setDoc 覆寫
+    function timestampMs(value) {
+      if (!value) return 0;
+      if (typeof value.toMillis === 'function') return value.toMillis();
+      if (typeof value.toDate === 'function') return value.toDate().getTime();
+      return Number(value) || 0;
+    }
+
+    function compareTimeRows(a, b) {
+      return (a.ms - b.ms) || ((a.undos || 0) - (b.undos || 0)) || (timestampMs(a.updatedAt || a.createdAt) - timestampMs(b.updatedAt || b.createdAt));
+    }
+
+    async function calculateTimeRank({ mode, size, timeId }) {
+      const snap = await getDocs(collection(db, 'scores'));
+      const rows = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(row => row.mode === mode && Number(row.size) === Number(size) && row.kind === 'time')
+        .sort(compareTimeRows);
+      const index = rows.findIndex(row => row.id === timeId);
+      return index === -1 ? null : index + 1;
+    }
+
     async function saveScoreAndRank({ mode, size, name, ms, undos, onResult }) {
       const user = await ensureAuth();
       const uid = user.uid;
       const timeId = `${uid}__${mode}__${size}__time`;
       const undoId = `${uid}__${mode}__${size}__undo`;
 
-      // 讀取目前個人最佳
       const [timeSnap, undoSnap] = await Promise.all([
         getDoc(doc(db, 'scores', timeId)),
         getDoc(doc(db, 'scores', undoId))
@@ -567,12 +507,9 @@
       const prevTime = timeSnap.exists() ? timeSnap.data() : null;
       const prevUndo = undoSnap.exists() ? undoSnap.data() : null;
 
-      // 判斷是否刷新：時間槽（ms 最小，平手比 undos）
       const beatTime = !prevTime
         || ms < prevTime.ms
         || (ms === prevTime.ms && undos < prevTime.undos);
-
-      // 判斷是否刷新：取消槽（undos 最小，平手比 ms）
       const beatUndo = !prevUndo
         || undos < prevUndo.undos
         || (undos === prevUndo.undos && ms < prevUndo.ms);
@@ -583,24 +520,11 @@
       if (beatUndo) writes.push(setDoc(doc(db, 'scores', undoId), { ...record, kind: 'undo' }));
       await Promise.all(writes);
 
-      // 計算全球時間榜名次（查時間槽排行）
-      const q = query(
-        collection(db, 'scores'),
-        where('mode', '==', mode),
-        where('size', '==', Number(size)),
-        where('kind', '==', 'time'),
-        orderBy('ms', 'asc'),
-        orderBy('undos', 'asc'),
-        orderBy('updatedAt', 'asc'),
-        limit(1000)
-      );
-      const snap = await getDocs(q);
-      let rank = null, idx = 0;
-      snap.forEach(d => { idx++; if (d.id === timeId) rank = idx; });
+      const rank = await calculateTimeRank({ mode, size, timeId });
 
       if (typeof onResult === 'function') {
         onResult({
-          rank,                         // null = 超出 1000
+          rank,
           beatTime,
           beatUndo,
           prevTimeMs: prevTime?.ms ?? null,
@@ -611,8 +535,6 @@
 
     window.saveScoreAndRank = saveScoreAndRank;
   </script>
-
-
 </body>
 
 </html>
