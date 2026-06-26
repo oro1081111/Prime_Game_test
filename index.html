@@ -48,7 +48,7 @@
   <div class="controls card">
     <div class="controls-row">
       <label>挑戰者名稱：
-        <input id="playerName" type="text" placeholder="你的名字">
+        <input id="playerName" type="text" placeholder="你的名字" maxlength="10">
       </label>
       <button id="saveName" class="secondary btn">儲存名稱</button>
       <!-- 遊戲介紹按鈕 -->
@@ -122,7 +122,7 @@
   const lbBtn     = document.getElementById('goLeaderboard');
   const aboutBtn  = document.getElementById('goAbout');
 
-  const stored = localStorage.getItem('playerName') || '';
+  const stored = (localStorage.getItem('playerName') || '').slice(0, 10);
   if (stored) nameInput.value = stored;
 
   // 儲存名稱
@@ -132,14 +132,15 @@
     alert('已儲存挑戰者名稱：' + (v || '(未命名)'));
   };
 
-  // 共用：檢查名稱是否已輸入
+  // 共用：檢查名稱是否已輸入（最多 10 字，與 Firestore 規則一致）
   function ensureName(){
-    const v = nameInput.value.trim();
+    const v = nameInput.value.trim().slice(0, 10);
     if (!v){
       alert('請先輸入挑戰者名稱！');
       nameInput.focus();
       return null;
     }
+    nameInput.value = v; // 同步截斷後的值回 input
     localStorage.setItem('playerName', v);
     return v;
   }

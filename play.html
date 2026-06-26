@@ -52,7 +52,7 @@
       const q = Router.getQuery();
       const MODE = (q.mode || 'basic');
       const SIZE = parseInt(q.size || '7', 10);
-      const PLAYER = q.name || localStorage.getItem('playerName') || '玩家';
+      const PLAYER = (q.name || localStorage.getItem('playerName') || '玩家').slice(0, 10);
       const START = parseInt(q.start || '1', 10);
       const HIDDEN = q.hidden === '1' || q.hidden === 1;
 
