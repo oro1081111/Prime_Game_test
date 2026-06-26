@@ -124,6 +124,24 @@
   .modal .row button { width: 100%; min-width: 0; }
 }
 
+/* 完成畫面：排名與個人紀錄 */
+.result-area { margin: 10px 0; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 8px 0; text-align: left; }
+.result-area p { margin: 5px 0; font-size: 15px; }
+.result-pending { color: #aaa; text-align: center !important; }
+.record-new { color: #2a7c3f; font-weight: 700; }
+.record-old { color: #999; }
+
+/* 登入狀態列 */
+.auth-row { font-size: 13px; opacity: .75; gap: 8px; min-height: 24px; }
+.btn-link {
+  background: transparent !important;
+  border: 1px solid #bbb !important;
+  color: #555 !important;
+  font-size: 12px !important;
+  padding: 2px 8px !important;
+  border-radius: 6px;
+}
+
 /* HUD：每排橫向排列，可自動換行置中 */
 .hud{
   display:flex;

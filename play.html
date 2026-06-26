@@ -19,6 +19,10 @@
         <!-- <button id="pause">暫停</button> -->
         <button id="backHome">返回首頁</button>
       </div>
+      <div class="controls-row auth-row">
+        <span id="authStatus">連線中…</span>
+        <button id="btnLinkGoogle" class="btn-link" style="display:none">綁定 Google 帳號</button>
+      </div>
     </div>
 
     <div class="hud">
@@ -252,6 +256,7 @@
       // === 完成畫面＋寫入 + 計算排名 ===
       function showSuccess() {
         if (scoreSaved) return;
+        scoreSaved = true;
         gameState = 'finished';
         stopTimer();
         const pauseBtn = document.getElementById('pause');
@@ -259,16 +264,12 @@
 
         const totalMsRounded = Math.round(elapsedBeforePause / 10) * 10;
         const time = fmt(totalMsRounded);
-        const rankSpanId = 'rankTextSpan';
 
-        // 先顯示占位
         showOverlay(`
       <h2>成功完成！</h2>
-      <p>模式：<b>${modeLabel}${SIZE}階</b></p>
-      <p>玩家：<b>${PLAYER}</b></p>
-      <p>用時：<b>${time}</b></p>
-      <p>取消次數：<b>${undoCount}</b></p>
-      <p>排名：<b id="${rankSpanId}">計算中…</b></p>
+      <p>模式：<b>${modeLabel}${SIZE}階</b>　玩家：<b>${PLAYER}</b></p>
+      <p>用時：<b>${time}</b>　取消：<b>${undoCount}</b> 次</p>
+      <div id="resultArea" class="result-area"><p class="result-pending">計算排名中…</p></div>
       <div class="row">
         <button id="btnAgain">再挑戰一次</button>
         <button id="btnHome">返回首頁</button>
@@ -282,22 +283,32 @@
           location.href = `leaderboard.html?mode=${MODE}&size=${SIZE}`;
         };
 
-        // 非阻塞地寫入並計算名次
-        if (window.saveScoreAndRank && !scoreSaved) {
-          scoreSaved = true;
+        if (window.saveScoreAndRank) {
           window.saveScoreAndRank({
-            mode: MODE,
-            size: SIZE,
-            name: PLAYER,
-            ms: totalMsRounded,
-            undos: undoCount,
-            onRank: (rankLabel) => {
-              const span = document.getElementById(rankSpanId);
-              if (span) span.textContent = rankLabel;
+            mode: MODE, size: SIZE, name: PLAYER,
+            ms: totalMsRounded, undos: undoCount,
+            onResult: ({ rank, beatTime, beatUndo, prevTimeMs, prevUndos }) => {
+              const area = document.getElementById('resultArea');
+              if (!area) return;
+              const rankLabel = rank !== null ? `第 ${rank} 名` : '第 1000+ 名';
+              let html = `<p>全球時間排名：<b>${rankLabel}</b></p>`;
+              if (beatTime) {
+                const prev = prevTimeMs != null ? `原 ${fmt(prevTimeMs)}` : '首次紀錄';
+                html += `<p class="record-new">✓ 最佳時間！（${prev}）</p>`;
+              } else if (prevTimeMs != null) {
+                html += `<p class="record-old">個人最佳時間：${fmt(prevTimeMs)}</p>`;
+              }
+              if (beatUndo) {
+                const prev = prevUndos != null ? `原 ${prevUndos} 次` : '首次紀錄';
+                html += `<p class="record-new">✓ 最少取消！（${prev}）</p>`;
+              } else if (prevUndos != null) {
+                html += `<p class="record-old">個人最少取消：${prevUndos} 次</p>`;
+              }
+              area.innerHTML = html;
             }
           }).catch(err => {
-            const span = document.getElementById(rankSpanId);
-            if (span) span.textContent = '—（計算失敗）';
+            const area = document.getElementById('resultArea');
+            if (area) area.innerHTML = '<p class="result-pending">—（排名計算失敗）</p>';
             console.error(err);
           });
         }
@@ -458,15 +469,17 @@
     })();
   </script>
 
-  <!-- === Firebase：初始化、匿名登入、寫入與名次計算 === -->
-  <!-- === Firebase：初始化、匿名登入、寫入與名次計算（修正版，先確保登入） === -->
+  <!-- === Firebase：身份驗證（匿名 + Google）、寫入個人最佳、計算排名 === -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
-    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
     import {
-      getFirestore, collection, addDoc, serverTimestamp, doc, getDoc,
-      query, where, orderBy, limit, getDocs
-    } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+      getAuth, signInAnonymously, GoogleAuthProvider,
+      linkWithPopup, signInWithPopup, onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+    import {
+      getFirestore, doc, getDoc, setDoc, serverTimestamp,
+      collection, query, where, orderBy, limit, getDocs
+    } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAbd97s2tRaR_VJXrBXGlibhMlSTujSl5w",
@@ -474,77 +487,128 @@
       projectId: "prime-game-58db3",
       storageBucket: "prime-game-58db3.firebasestorage.app",
       messagingSenderId: "1056693585850",
-      appId: "1:1056693585850:web:a17b5e82a12fa6525bff83",
-      measurementId: "G-0ZLPR7N4FB"
+      appId: "1:1056693585850:web:a17b5e82a12fa6525bff83"
     };
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
+    const gp = new GoogleAuthProvider();
 
-    // 1) 建一個保證拿到 uid 的流程（只登入一次，之後快取）
-    let authReady = null;
-    async function ensureAuth() {
-      if (auth.currentUser) return auth.currentUser;
-      if (!authReady) {
-        authReady = (async () => {
-          try {
-            await signInAnonymously(auth);
-            // 等待 Firebase 寫好 currentUser（很快）
-            let tries = 0;
-            while (!auth.currentUser && tries++ < 20) {
-              await new Promise(r => setTimeout(r, 50));
-            }
-            if (!auth.currentUser) throw new Error('Anonymous sign-in not ready');
-            return auth.currentUser;
-          } catch (e) {
-            console.error('匿名登入失敗', e);
-            throw e;
-          }
-        })();
+    let currentUser = null;
+
+    // 更新 HUD 的登入狀態顯示
+    function updateAuthUI(user) {
+      const st = document.getElementById('authStatus');
+      const lb = document.getElementById('btnLinkGoogle');
+      if (!st) return;
+      if (!user) { st.textContent = '連線中…'; return; }
+      if (user.isAnonymous) {
+        st.textContent = '匿名';
+        if (lb) lb.style.display = '';
+      } else {
+        const email = user.email || user.providerData[0]?.email || 'Google 帳號';
+        st.textContent = email;
+        if (lb) lb.style.display = 'none';
       }
-      return authReady;
     }
 
-    // 2) 寫入 + 計算名次
-    async function saveScoreAndRank({ mode, size, name, ms, undos, onRank }) {
-      // (A) 先確保已登入，取得 uid
-      const user = await ensureAuth();
+    // 監聽登入狀態：無登入時自動匿名登入
+    onAuthStateChanged(auth, user => {
+      if (user) { currentUser = user; updateAuthUI(user); }
+      else { signInAnonymously(auth).catch(e => console.error('匿名登入失敗', e)); }
+    });
 
-      // (B) 寫入（createdAt 用 serverTimestamp 以符合規則）
-      const docRef = await addDoc(collection(db, 'scores'), {
-        mode, size, name,
-        ms: Number(ms),
-        undos: Number(undos),
-        createdAt: serverTimestamp(),
-        uid: user.uid
+    // 綁定 Google 按鈕
+    document.getElementById('btnLinkGoogle')?.addEventListener('click', async () => {
+      if (!currentUser) return;
+      try {
+        const result = await linkWithPopup(currentUser, gp);
+        currentUser = result.user;
+        updateAuthUI(currentUser);
+      } catch (e) {
+        if (e.code === 'auth/credential-already-in-use') {
+          if (confirm('此 Google 帳號已有排行榜紀錄。切換至該帳號？\n（目前匿名紀錄將丟失）')) {
+            try {
+              const r = await signInWithPopup(auth, gp);
+              currentUser = r.user; updateAuthUI(currentUser);
+            } catch (e2) { if (e2.code !== 'auth/popup-closed-by-user') console.error(e2); }
+          }
+        } else if (e.code !== 'auth/popup-closed-by-user') {
+          console.error('Google 綁定失敗', e);
+        }
+      }
+    });
+
+    // 等待登入完成
+    function ensureAuth() {
+      if (currentUser) return Promise.resolve(currentUser);
+      return new Promise((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error('auth timeout')), 10000);
+        const unsub = onAuthStateChanged(auth, user => {
+          if (user) { clearTimeout(t); unsub(); resolve(user); }
+        });
       });
+    }
 
-      // (C) 讀回自己的 createdAt（serverTimestamp 需讀一次才有值）
-      const snap = await getDoc(doc(db, 'scores', docRef.id));
-      const my = { id: docRef.id, ms: Number(ms), undos: Number(undos), createdAt: snap.data()?.createdAt };
+    // 寫入個人最佳 + 計算排名
+    // 每位玩家每個 mode+size 固定兩個 doc（時間槽 / 取消槽），以 setDoc 覆寫
+    async function saveScoreAndRank({ mode, size, name, ms, undos, onResult }) {
+      const user = await ensureAuth();
+      const uid = user.uid;
+      const timeId = `${uid}__${mode}__${size}__time`;
+      const undoId = `${uid}__${mode}__${size}__undo`;
 
-      // (D) 查同 mode/size 的前 1000 名，排序規則：ms ↑, undos ↑, createdAt ↑
+      // 讀取目前個人最佳
+      const [timeSnap, undoSnap] = await Promise.all([
+        getDoc(doc(db, 'scores', timeId)),
+        getDoc(doc(db, 'scores', undoId))
+      ]);
+      const prevTime = timeSnap.exists() ? timeSnap.data() : null;
+      const prevUndo = undoSnap.exists() ? undoSnap.data() : null;
+
+      // 判斷是否刷新：時間槽（ms 最小，平手比 undos）
+      const beatTime = !prevTime
+        || ms < prevTime.ms
+        || (ms === prevTime.ms && undos < prevTime.undos);
+
+      // 判斷是否刷新：取消槽（undos 最小，平手比 ms）
+      const beatUndo = !prevUndo
+        || undos < prevUndo.undos
+        || (undos === prevUndo.undos && ms < prevUndo.ms);
+
+      const record = { uid, name, mode, size: Number(size), ms: Number(ms), undos: Number(undos), updatedAt: serverTimestamp() };
+      const writes = [];
+      if (beatTime) writes.push(setDoc(doc(db, 'scores', timeId), { ...record, kind: 'time' }));
+      if (beatUndo) writes.push(setDoc(doc(db, 'scores', undoId), { ...record, kind: 'undo' }));
+      await Promise.all(writes);
+
+      // 計算全球時間榜名次（查時間槽排行）
       const q = query(
         collection(db, 'scores'),
         where('mode', '==', mode),
-        where('size', '==', size),
+        where('size', '==', Number(size)),
+        where('kind', '==', 'time'),
         orderBy('ms', 'asc'),
         orderBy('undos', 'asc'),
-        orderBy('createdAt', 'asc'),
+        orderBy('updatedAt', 'asc'),
         limit(1000)
       );
-
-      // 注意：若瀏覽器 Console 出現「requires an index」字樣，點連結建立索引即可
-      const list = await getDocs(q);
-
+      const snap = await getDocs(q);
       let rank = null, idx = 0;
-      list.forEach(d => { idx++; if (d.id === my.id) rank = idx; });
-      const label = (rank !== null) ? `第 ${rank} 名` : '第 1000+ 名';
-      if (typeof onRank === 'function') onRank(label);
+      snap.forEach(d => { idx++; if (d.id === timeId) rank = idx; });
+
+      if (typeof onResult === 'function') {
+        onResult({
+          rank,                         // null = 超出 1000
+          beatTime,
+          beatUndo,
+          prevTimeMs: prevTime?.ms ?? null,
+          prevUndos: prevUndo?.undos ?? null,
+        });
+      }
     }
 
-    // 暴露給遊戲邏輯呼叫
     window.saveScoreAndRank = saveScoreAndRank;
   </script>
 

@@ -56,6 +56,11 @@
       <!-- 新增排行榜按鈕，與儲存名稱並排 -->
       <button id="goLeaderboard" class="btn">查看排行榜</button>
     </div>
+    <div class="controls-row" style="font-size:13px;gap:10px;opacity:.8;min-height:28px;">
+      <span id="authStatus">連線中…</span>
+      <button id="btnGoogleSignIn" class="btn secondary" style="display:none;font-size:13px;padding:4px 10px;">Google 登入</button>
+      <button id="btnSignOut" class="btn secondary" style="display:none;font-size:13px;padding:4px 10px;">登出</button>
+    </div>
   </div>
 
   <div class="card-grid">
@@ -175,6 +180,77 @@
     location.href = 'leaderboard.html';
   };
 })();
+</script>
+
+<!-- Firebase 身份驗證（匿名 + Google 一鍵登入） -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import {
+  getAuth, signInAnonymously, GoogleAuthProvider,
+  linkWithPopup, signInWithPopup, signOut, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAbd97s2tRaR_VJXrBXGlibhMlSTujSl5w",
+  authDomain: "prime-game-58db3.firebaseapp.com",
+  projectId: "prime-game-58db3",
+  storageBucket: "prime-game-58db3.firebasestorage.app",
+  messagingSenderId: "1056693585850",
+  appId: "1:1056693585850:web:a17b5e82a12fa6525bff83"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const gp = new GoogleAuthProvider();
+let currentUser = null;
+
+function updateAuthUI(user) {
+  const st = document.getElementById('authStatus');
+  const signinBtn = document.getElementById('btnGoogleSignIn');
+  const signoutBtn = document.getElementById('btnSignOut');
+  if (!st) return;
+  if (!user) { st.textContent = '連線中…'; return; }
+  if (user.isAnonymous) {
+    st.textContent = '匿名';
+    if (signinBtn) signinBtn.style.display = '';
+    if (signoutBtn) signoutBtn.style.display = 'none';
+  } else {
+    const email = user.email || user.providerData[0]?.email || 'Google 帳號';
+    st.textContent = email;
+    if (signinBtn) signinBtn.style.display = 'none';
+    if (signoutBtn) signoutBtn.style.display = '';
+  }
+}
+
+onAuthStateChanged(auth, user => {
+  if (user) { currentUser = user; updateAuthUI(user); }
+  else { signInAnonymously(auth).catch(e => console.error('匿名登入失敗', e)); }
+});
+
+document.getElementById('btnGoogleSignIn')?.addEventListener('click', async () => {
+  if (!currentUser) return;
+  try {
+    const result = await linkWithPopup(currentUser, gp);
+    currentUser = result.user;
+    updateAuthUI(currentUser);
+  } catch (e) {
+    if (e.code === 'auth/credential-already-in-use') {
+      if (confirm('此 Google 帳號已有排行榜紀錄。切換至該帳號？\n（目前匿名紀錄將丟失）')) {
+        try {
+          const r = await signInWithPopup(auth, gp);
+          currentUser = r.user; updateAuthUI(currentUser);
+        } catch (e2) { if (e2.code !== 'auth/popup-closed-by-user') console.error(e2); }
+      }
+    } else if (e.code !== 'auth/popup-closed-by-user') {
+      console.error('Google 登入失敗', e);
+    }
+  }
+});
+
+document.getElementById('btnSignOut')?.addEventListener('click', async () => {
+  await signOut(auth);
+  // onAuthStateChanged 會接到 null 並自動重新匿名登入
+});
 </script>
 </body>
 </html>
