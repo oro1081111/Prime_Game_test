@@ -150,7 +150,6 @@
       align-items:stretch;
     }
     .main-panel,
-    .side-panel,
     .mode-card {
       border:1px solid var(--line);
       border-radius:8px;
@@ -162,7 +161,7 @@
       padding:18px;
       display:flex;
       flex-direction:column;
-      gap:14px;
+      gap:12px;
       min-height:0;
     }
     .eyebrow {
@@ -185,11 +184,12 @@
       margin:0;
     }
     .side-panel {
-      padding:8px 10px;
+      padding:10px 0 0;
       display:grid;
       grid-template-columns:minmax(0, 1fr) auto;
       gap:8px;
       align-items:end;
+      border-top:1px solid rgba(229,220,203,.85);
     }
     .panel-head {
       display:flex;
@@ -240,7 +240,7 @@
     }
     .name-row {
       display:grid;
-      grid-template-columns:1fr auto;
+      grid-template-columns:1fr 70px;
       gap:6px;
     }
     #playerName {
@@ -255,6 +255,12 @@
     }
     .auth-actions .btn {
       min-width:96px;
+    }
+    #saveName {
+      width:70px;
+      padding-left:8px;
+      padding-right:8px;
+      white-space:nowrap;
     }
     .mode-section {
       display:flex;
@@ -338,9 +344,6 @@
       padding:2px 0 0;
     }
     @media (min-width:901px) {
-      .side-panel {
-        order:2;
-      }
       .mode-section {
         margin-top:auto;
       }
@@ -370,7 +373,7 @@
       }
       .main-panel {
         padding:12px;
-        gap:8px;
+        gap:7px;
         box-shadow:0 10px 24px rgba(31,41,55,.08);
       }
       .topbar {
@@ -410,9 +413,8 @@
         overflow:hidden;
       }
       .side-panel {
-        padding:7px 8px;
+        padding:7px 0 0;
         gap:6px;
-        box-shadow:0 10px 22px rgba(31,41,55,.08);
       }
       .panel-head {
         grid-column:auto;
@@ -432,7 +434,7 @@
         display:none;
       }
       .name-row {
-        grid-template-columns:1fr 54px;
+        grid-template-columns:1fr 66px;
       }
       .auth-actions {
         grid-column:2;
@@ -447,6 +449,9 @@
         min-height:34px;
         padding:7px 8px;
         font-size:12px;
+      }
+      #saveName {
+        width:66px;
       }
       .section-head {
         display:none;
@@ -493,6 +498,12 @@
       .mode-card {
         padding:8px;
       }
+      .name-row {
+        grid-template-columns:1fr 62px;
+      }
+      #saveName {
+        width:62px;
+      }
     }
   </style>
 </head>
@@ -527,30 +538,30 @@
         <h1>漢米爾頓質數遊戲</h1>
       </div>
       <p class="lead">沿著相鄰格子走完指定路徑，避開質數限制，用最短時間和最少取消次數登上排行榜。</p>
+
+      <div class="side-panel" aria-label="玩家設定">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">玩家設定</div>
+            <div id="authStatus">連線中…</div>
+          </div>
+          <div id="accountBadge" class="account-badge">尚未登入</div>
+        </div>
+
+        <div class="field">
+          <label for="playerName">排行榜名稱</label>
+          <div class="name-row">
+            <input id="playerName" type="text" placeholder="10 字內名稱" maxlength="10" autocomplete="nickname">
+            <button id="saveName" class="btn secondary">儲存</button>
+          </div>
+        </div>
+
+        <div class="auth-actions">
+          <button id="btnGoogleSignIn" class="btn" style="display:none;">Google 登入</button>
+          <button id="btnSignOut" class="btn secondary" style="display:none;">登出</button>
+        </div>
+      </div>
     </section>
-
-    <aside class="side-panel" aria-label="玩家設定">
-      <div class="panel-head">
-        <div>
-          <div class="panel-title">玩家設定</div>
-          <div id="authStatus">連線中…</div>
-        </div>
-        <div id="accountBadge" class="account-badge">尚未登入</div>
-      </div>
-
-      <div class="field">
-        <label for="playerName">排行榜名稱</label>
-        <div class="name-row">
-          <input id="playerName" type="text" placeholder="10 字內名稱" maxlength="10" autocomplete="nickname">
-          <button id="saveName" class="btn secondary">儲存</button>
-        </div>
-      </div>
-
-      <div class="auth-actions">
-        <button id="btnGoogleSignIn" class="btn" style="display:none;">Google 登入</button>
-        <button id="btnSignOut" class="btn secondary" style="display:none;">登出</button>
-      </div>
-    </aside>
 
     <section class="mode-section" aria-label="選擇模式">
       <div class="section-head">
