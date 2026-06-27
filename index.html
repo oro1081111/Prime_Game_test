@@ -30,7 +30,7 @@
       display:grid;
       grid-template-columns:repeat(10, 1fr);
       gap:5px;
-      opacity:.12;
+      opacity:.22;
       transform:rotate(-8deg);
       pointer-events:none;
       z-index:0;
@@ -38,10 +38,10 @@
     .ambient-board span {
       border:1px solid #8aa5a0;
       border-radius:6px;
-      background:rgba(255,255,255,.42);
+      background:rgba(255,255,255,.58);
       display:grid;
       place-items:center;
-      color:rgba(31,41,55,.34);
+      color:rgba(31,41,55,.5);
       font-weight:900;
       font-size:clamp(9px, 1.5vw, 15px);
       animation:answerTrace 4.8s linear infinite;
@@ -52,21 +52,21 @@
     .ambient-board span:nth-child(5n) { border-color:#e9ca63; }
     @keyframes answerTrace {
       0%, 9% {
-        background:rgba(255,255,255,.42);
+        background:rgba(255,255,255,.58);
         box-shadow:none;
-        color:rgba(31,41,55,.26);
+        color:rgba(31,41,55,.42);
         transform:scale(1);
       }
       11%, 78% {
-        background:rgba(220,252,231,.9);
-        box-shadow:0 0 0 2px rgba(22,101,52,.18) inset, 0 6px 18px rgba(15,118,110,.12);
-        color:rgba(22,101,52,.82);
+        background:rgba(134,239,172,.95);
+        box-shadow:0 0 0 2px rgba(22,101,52,.28) inset, 0 6px 18px rgba(15,118,110,.18);
+        color:rgba(20,83,45,.92);
         transform:scale(1.03);
       }
       88%, 100% {
-        background:rgba(255,255,255,.38);
+        background:rgba(255,255,255,.48);
         box-shadow:none;
-        color:rgba(31,41,55,.24);
+        color:rgba(31,41,55,.34);
         transform:scale(1);
       }
     }
@@ -243,24 +243,30 @@
       display:grid;
       grid-template-columns:1fr 70px;
       gap:6px;
+      align-items:stretch;
     }
     #playerName {
       width:100%;
-      min-height:34px;
+      height:44px;
       border:1px solid var(--line);
       border-radius:8px;
-      padding:7px 9px;
+      padding:9px 11px;
       background:#fff;
       color:var(--ink);
       font-size:15px;
     }
     .auth-actions .btn {
-      min-width:96px;
+      width:88px;
+      height:44px;
+      min-height:44px;
+      padding:0 10px;
+      white-space:nowrap;
     }
     #saveName {
       width:70px;
-      padding-left:8px;
-      padding-right:8px;
+      height:44px;
+      min-height:44px;
+      padding:0 10px;
       white-space:nowrap;
     }
     .mode-section {
@@ -360,7 +366,7 @@
       .ambient-board {
         width:128vw;
         inset:auto -58px -24px auto;
-        opacity:.1;
+        opacity:.18;
         gap:4px;
       }
       .wrap {
@@ -435,7 +441,7 @@
         display:none;
       }
       .name-row {
-        grid-template-columns:1fr 66px;
+        grid-template-columns:1fr 82px;
       }
       .auth-actions {
         grid-column:2;
@@ -447,12 +453,14 @@
       }
       .auth-actions .btn {
         min-width:82px;
-        min-height:34px;
-        padding:7px 8px;
+        width:82px;
+        height:44px;
+        min-height:44px;
+        padding:0 8px;
         font-size:12px;
       }
       #saveName {
-        width:66px;
+        width:82px;
       }
       .section-head {
         display:none;
@@ -500,10 +508,10 @@
         padding:8px;
       }
       .name-row {
-        grid-template-columns:1fr 62px;
+        grid-template-columns:1fr 74px;
       }
       #saveName {
-        width:62px;
+        width:74px;
       }
     }
   </style>
