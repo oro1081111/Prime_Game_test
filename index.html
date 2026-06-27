@@ -36,11 +36,9 @@
       z-index:0;
     }
     .ambient-board span {
-      --cell-bg:#e8f7ff;
-      --cell-fade-bg:#dff2fb;
-      --cell-color:#075985;
-      --cell-fade-color:#075985;
-      --cell-border:#8bd3f7;
+      --cell-bg:rgba(255,255,255,.82);
+      --cell-color:rgba(31,41,55,.4);
+      --cell-border:#d8d0c0;
       position:relative;
       border:1px solid var(--cell-border);
       border-radius:6px;
@@ -50,46 +48,31 @@
       color:var(--cell-color);
       font-weight:900;
       font-size:clamp(9px, 1.5vw, 15px);
-      animation:answerTrace var(--trace-duration, 6.8s) linear infinite;
-      animation-delay:calc(var(--i) * .045s);
+      box-shadow:0 1px 0 rgba(255,255,255,.64) inset;
+      transition:background .22s, border-color .22s, box-shadow .22s, color .22s, transform .22s;
     }
-    .ambient-board span:nth-child(3n) { border-color:#9fb0ef; }
-    .ambient-board span:nth-child(4n) { border-color:#9ed8b4; }
-    .ambient-board span:nth-child(5n) { border-color:#e9ca63; }
     .ambient-board span.prime {
       --cell-bg:#f0e8ff;
-      --cell-fade-bg:#e6ddff;
       --cell-color:#4b2faf;
-      --cell-fade-color:#4b2faf;
       --cell-border:#a78bfa;
       text-shadow:0 1px 0 rgba(255,255,255,.5);
     }
     .ambient-board span.one {
       --cell-bg:#fff0b3;
-      --cell-fade-bg:#ffec99;
       --cell-color:#7a4d00;
-      --cell-fade-color:#7a4d00;
       --cell-border:#e6b800;
     }
-    @keyframes answerTrace {
-      0%, 9.95% {
-        background:var(--cell-bg);
-        box-shadow:none;
-        color:var(--cell-color);
-        transform:scale(1);
-      }
-      10%, 10.25% {
-        background:rgba(74,222,128,.98);
-        box-shadow:0 0 0 2px rgba(20,83,45,.42) inset, 0 8px 22px rgba(15,118,110,.28);
-        color:rgba(20,83,45,1);
-        transform:scale(1.03);
-      }
-      10.3%, 100% {
-        background:var(--cell-bg);
-        box-shadow:none;
-        color:var(--cell-color);
-        transform:scale(1);
-      }
+    .ambient-board span.filled {
+      --cell-bg:#e8f7ff;
+      --cell-color:#075985;
+      --cell-border:#8bd3f7;
+    }
+    .ambient-board span.current {
+      --cell-bg:#e6ffe9;
+      --cell-color:#14532d;
+      --cell-border:#22c55e;
+      box-shadow:0 0 0 2px rgba(20,83,45,.42) inset, 0 8px 22px rgba(15,118,110,.28);
+      transform:scale(1.03);
     }
     .wrap {
       max-width:1080px;
@@ -563,8 +546,9 @@
   const board = document.querySelector('.ambient-board');
   if (!board) return;
   const size = 10;
-  const cycleMs = 7600;
-  board.style.setProperty('--trace-duration', `${cycleMs / 1000}s`);
+  const stepMs = 900;
+  const resetPauseMs = 2200;
+  let timer = null;
 
   function isPrime(value) {
     if (value < 2) return false;
@@ -622,10 +606,8 @@
   for (let r = 0; r < size; r++) {
     for (let c = 0; c < size; c++) {
       const cell = document.createElement('span');
-      const value = r * size + c + 1;
-      cell.textContent = String(value);
-      if (value === 1) cell.classList.add('one');
-      if (isPrime(value)) cell.classList.add('prime');
+      cell.dataset.r = String(r);
+      cell.dataset.c = String(c);
       cells.push(cell);
       board.appendChild(cell);
     }
@@ -638,21 +620,51 @@
     return path;
   }
 
-  function applyPath() {
+  function setCellState(cell, state, value) {
+    cell.className = '';
+    if (state) cell.classList.add(state);
+    cell.textContent = state === 'pending' ? '' : String(value);
+  }
+
+  function startDemo() {
     const path = createSpecialPath();
-    const order = new Map(path.map(([r, c], i) => [`${r},${c}`, i]));
+    const composites = [];
     cells.forEach((cell, i) => {
       const r = Math.floor(i / size);
       const c = i % size;
-      cell.style.setProperty('--i', order.get(`${r},${c}`));
-      cell.style.animation = 'none';
-      cell.offsetHeight;
-      cell.style.animation = '';
+      const value = path.findIndex(([pr, pc]) => pr === r && pc === c) + 1;
+      cell.dataset.value = String(value);
+      if (value === 1) {
+        setCellState(cell, 'one', value);
+      } else if (isPrime(value)) {
+        setCellState(cell, 'prime', value);
+      } else {
+        setCellState(cell, 'pending', value);
+        composites.push(cell);
+      }
     });
+
+    composites.sort((a, b) => Number(a.dataset.value) - Number(b.dataset.value));
+    let step = 0;
+    const renderStep = () => {
+      composites.forEach((cell, index) => {
+        const value = Number(cell.dataset.value);
+        if (index < step) setCellState(cell, 'filled', value);
+        else if (index === step) setCellState(cell, 'current', value);
+        else setCellState(cell, 'pending', value);
+      });
+
+      step++;
+      if (step > composites.length) {
+        clearInterval(timer);
+        timer = setTimeout(startDemo, resetPauseMs);
+      }
+    };
+    renderStep();
+    timer = setInterval(renderStep, stepMs);
   }
 
-  applyPath();
-  setInterval(applyPath, cycleMs);
+  startDemo();
 })();
 </script>
 
