@@ -1,0 +1,32 @@
+{
+  "//": "排行榜所需的 Firestore 複合索引。可用 `firebase deploy --only firestore:indexes` 部署，或在主控台依此手動建立。",
+  "indexes": [
+    {
+      "//": "時間榜：where mode,size,kind=='time' + orderBy ms,undos,updatedAt（play.html 名次計算也用這條）",
+      "collectionGroup": "scores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "mode", "order": "ASCENDING" },
+        { "fieldPath": "size", "order": "ASCENDING" },
+        { "fieldPath": "kind", "order": "ASCENDING" },
+        { "fieldPath": "ms", "order": "ASCENDING" },
+        { "fieldPath": "undos", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "取消榜：where mode,size,kind=='undo' + orderBy undos,ms,updatedAt",
+      "collectionGroup": "scores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "mode", "order": "ASCENDING" },
+        { "fieldPath": "size", "order": "ASCENDING" },
+        { "fieldPath": "kind", "order": "ASCENDING" },
+        { "fieldPath": "undos", "order": "ASCENDING" },
+        { "fieldPath": "ms", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

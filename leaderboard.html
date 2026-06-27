@@ -112,9 +112,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebas
 import {
   getFirestore, collection, query, where, orderBy, limit, getDocs, startAfter
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
-import {
-  getAuth, signInAnonymously
-} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAbd97s2tRaR_VJXrBXGlibhMlSTujSl5w",
@@ -127,7 +124,6 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
-const auth = getAuth(app);
 
 /* ---------------- UI/狀態 ---------------- */
 const $  = (s)=>document.querySelector(s);
@@ -207,7 +203,11 @@ async function loadNextPage(){
   }catch(err){
     console.error('讀取排行榜失敗：', err);
     if ($('#cards').children.length===0){
-      $('#cards').innerHTML = `<div class="empty">讀取失敗或尚無資料</div>`;
+      const msg = String(err?.message || '');
+      const needIndex = err?.code === 'failed-precondition' || /index/i.test(msg);
+      $('#cards').innerHTML = needIndex
+        ? `<div class="empty">尚未建立 Firestore 索引<br><span style="font-size:12px">請開啟瀏覽器主控台（F12 → Console），點選錯誤訊息中的建立索引連結</span></div>`
+        : `<div class="empty">讀取失敗：${msg || '未知錯誤'}</div>`;
     }
     state.done = true;
   }finally{
@@ -280,14 +280,10 @@ $('#btnHome').addEventListener('click', ()=> location.href='index.html');
 $('#btnPlay').addEventListener('click', ()=> location.href = paramsToPlay(state.mode,state.size));
 
 /* ---------------- 啟動（先匿名登入，再載入） ---------------- */
-async function boot(){
-  try{
-    // 若規則開放 read，匿名登入可選；若規則需 auth，這步是必要的
-    await signInAnonymously(auth);
-  }catch(e){
-    console.warn('匿名登入失敗，將以未登入狀態讀取（需 Firestore 規則允許 read）', e);
-  }
-  // 套用 URL 預設 active 樣式並載入
+function boot(){
+  // scores 規則為公開讀取（read: if true），排行榜不需登入。
+  // 切勿在此呼叫 signInAnonymously：它會建立新匿名帳號並覆蓋使用者
+  // 既有的 Google／匿名登入狀態（造成「登入被跳出」）。
   setActive('#modeTabs','mode',state.mode);
   setActive('#sizeTabs','size',state.size);
   setActive('#lbTabs','lb',state.lb);
