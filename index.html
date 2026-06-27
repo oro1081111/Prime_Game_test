@@ -30,7 +30,7 @@
       display:grid;
       grid-template-columns:repeat(10, 1fr);
       gap:5px;
-      opacity:.34;
+      opacity:.46;
       transform:rotate(-8deg);
       pointer-events:none;
       z-index:0;
@@ -151,16 +151,17 @@
       flex:1;
       display:grid;
       grid-template-columns:minmax(0, 1fr) minmax(300px, 380px);
-      gap:10px;
+      gap:14px;
       align-items:stretch;
     }
     .main-panel,
     .mode-card {
-      border:1px solid var(--line);
+      border:1px solid rgba(255,255,255,.5);
       border-radius:8px;
-      background:var(--paper);
-      box-shadow:0 14px 36px rgba(31,41,55,.09);
-      backdrop-filter:blur(12px);
+      background:linear-gradient(145deg, rgba(255,255,255,.46), rgba(255,255,255,.18));
+      box-shadow:0 14px 34px rgba(31,41,55,.08), inset 0 1px 0 rgba(255,255,255,.58);
+      backdrop-filter:blur(10px) saturate(1.18);
+      -webkit-backdrop-filter:blur(10px) saturate(1.18);
     }
     .main-panel {
       padding:18px;
@@ -291,7 +292,7 @@
     .mode-section {
       display:flex;
       flex-direction:column;
-      gap:10px;
+      gap:12px;
       min-height:0;
     }
     .section-head {
@@ -312,7 +313,7 @@
     .card-grid {
       display:grid;
       grid-template-columns:repeat(2, minmax(0, 1fr));
-      gap:10px;
+      gap:12px;
       min-height:0;
     }
     .mode-card {
@@ -385,21 +386,21 @@
       .ambient-board {
         width:128vw;
         inset:auto -58px -24px auto;
-        opacity:.28;
+        opacity:.4;
         gap:4px;
       }
       .wrap {
         min-height:calc(100vh - 20px);
-        gap:8px;
+        gap:10px;
       }
       .hero {
         display:flex;
         flex-direction:column;
-        gap:8px;
+        gap:10px;
       }
       .main-panel {
         padding:12px;
-        gap:7px;
+        gap:9px;
         box-shadow:0 10px 24px rgba(31,41,55,.08);
       }
       .topbar {
@@ -490,11 +491,11 @@
       }
       .card-grid {
         grid-template-columns:1fr;
-        gap:8px;
+        gap:10px;
       }
       .mode-card {
         padding:8px 10px;
-        gap:7px;
+        gap:8px;
       }
       .mode-card h3 {
         font-size:16px;
