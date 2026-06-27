@@ -30,7 +30,7 @@
       display:grid;
       grid-template-columns:repeat(10, 1fr);
       gap:5px;
-      opacity:.22;
+      opacity:.34;
       transform:rotate(-8deg);
       pointer-events:none;
       z-index:0;
@@ -38,35 +38,35 @@
     .ambient-board span {
       border:1px solid #8aa5a0;
       border-radius:6px;
-      background:rgba(255,255,255,.58);
+      background:rgba(255,255,255,.72);
       display:grid;
       place-items:center;
-      color:rgba(31,41,55,.5);
+      color:rgba(31,41,55,.68);
       font-weight:900;
       font-size:clamp(9px, 1.5vw, 15px);
-      animation:answerTrace 4.8s linear infinite;
-      animation-delay:calc(var(--i) * .035s);
+      animation:answerTrace var(--trace-duration, 6.8s) linear infinite;
+      animation-delay:calc(var(--i) * .045s);
     }
     .ambient-board span:nth-child(3n) { border-color:#9fb0ef; }
     .ambient-board span:nth-child(4n) { border-color:#9ed8b4; }
     .ambient-board span:nth-child(5n) { border-color:#e9ca63; }
     @keyframes answerTrace {
       0%, 9% {
-        background:rgba(255,255,255,.58);
+        background:rgba(255,255,255,.72);
         box-shadow:none;
-        color:rgba(31,41,55,.42);
+        color:rgba(31,41,55,.58);
         transform:scale(1);
       }
       11%, 78% {
-        background:rgba(134,239,172,.95);
-        box-shadow:0 0 0 2px rgba(22,101,52,.28) inset, 0 6px 18px rgba(15,118,110,.18);
-        color:rgba(20,83,45,.92);
+        background:rgba(74,222,128,.98);
+        box-shadow:0 0 0 2px rgba(20,83,45,.42) inset, 0 8px 22px rgba(15,118,110,.28);
+        color:rgba(20,83,45,1);
         transform:scale(1.03);
       }
       88%, 100% {
-        background:rgba(255,255,255,.48);
+        background:rgba(255,255,255,.62);
         box-shadow:none;
-        color:rgba(31,41,55,.34);
+        color:rgba(31,41,55,.48);
         transform:scale(1);
       }
     }
@@ -254,6 +254,15 @@
       background:#fff;
       color:var(--ink);
       font-size:15px;
+      font-family:inherit;
+      font-weight:700;
+      line-height:1;
+    }
+    #playerName::placeholder {
+      color:#7c8798;
+      font:inherit;
+      font-weight:700;
+      opacity:1;
     }
     .auth-actions .btn {
       width:88px;
@@ -261,6 +270,9 @@
       min-height:44px;
       padding:0 10px;
       white-space:nowrap;
+      font-family:inherit;
+      font-size:15px;
+      font-weight:700;
     }
     #saveName {
       width:70px;
@@ -268,6 +280,9 @@
       min-height:44px;
       padding:0 10px;
       white-space:nowrap;
+      font-family:inherit;
+      font-size:15px;
+      font-weight:700;
     }
     .mode-section {
       display:flex;
@@ -366,7 +381,7 @@
       .ambient-board {
         width:128vw;
         inset:auto -58px -24px auto;
-        opacity:.18;
+        opacity:.28;
         gap:4px;
       }
       .wrap {
@@ -457,7 +472,11 @@
         height:44px;
         min-height:44px;
         padding:0 8px;
-        font-size:12px;
+        font-size:14px;
+      }
+      #playerName,
+      #saveName {
+        font-size:14px;
       }
       #saveName {
         width:82px;
@@ -523,33 +542,85 @@
   const board = document.querySelector('.ambient-board');
   if (!board) return;
   const size = 10;
-  const path = [];
-  let top = 0, right = size - 1, bottom = size - 1, left = 0;
-  while (top <= bottom && left <= right) {
-    for (let c = left; c <= right; c++) path.push([top, c]);
-    top++;
-    for (let r = top; r <= bottom; r++) path.push([r, right]);
-    right--;
-    if (top <= bottom) {
-      for (let c = right; c >= left; c--) path.push([bottom, c]);
-      bottom--;
+  const cycleMs = 7600;
+  board.style.setProperty('--trace-duration', `${cycleMs / 1000}s`);
+
+  function initSnake(rows, cols) {
+    const p = [];
+    for (let r = 0; r < rows; r++) {
+      if (r % 2 === 0) {
+        for (let c = 0; c < cols; c++) p.push([r, c]);
+      } else {
+        for (let c = cols - 1; c >= 0; c--) p.push([r, c]);
+      }
     }
-    if (left <= right) {
-      for (let r = bottom; r >= top; r--) path.push([r, left]);
-      left++;
-    }
+    return p;
   }
-  const order = new Map(path.map(([r, c], i) => [`${r},${c}`, i]));
-  const frag = document.createDocumentFragment();
+
+  function backbite(p, rows, cols) {
+    const n = p.length;
+    if (n < 4) return false;
+    const useHead = Math.random() < 0.5;
+    const endpoint = useHead ? p[0] : p[n - 1];
+    const index = new Map();
+    for (let i = 0; i < n; i++) index.set(`${p[i][0]},${p[i][1]}`, i);
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    const candidates = [];
+    for (const [dr, dc] of dirs) {
+      const nr = endpoint[0] + dr;
+      const nc = endpoint[1] + dc;
+      if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+      const k = index.get(`${nr},${nc}`);
+      if (k == null) continue;
+      if (useHead ? k <= 1 : k >= n - 2) continue;
+      candidates.push(k);
+    }
+    if (!candidates.length) return false;
+    const k = candidates[(Math.random() * candidates.length) | 0];
+    if (useHead) {
+      const pre = p.slice(0, k).reverse();
+      const rest = p.slice(k);
+      p.splice(0, p.length, ...pre, ...rest);
+    } else {
+      const left = p.slice(0, k + 1);
+      const tail = p.slice(k + 1).reverse();
+      p.splice(0, p.length, ...left, ...tail);
+    }
+    return true;
+  }
+
+  const cells = [];
   for (let r = 0; r < size; r++) {
     for (let c = 0; c < size; c++) {
       const cell = document.createElement('span');
       cell.textContent = String(r * size + c + 1);
-      cell.style.setProperty('--i', order.get(`${r},${c}`));
-      frag.appendChild(cell);
+      cells.push(cell);
+      board.appendChild(cell);
     }
   }
-  board.appendChild(frag);
+
+  function createSpecialPath() {
+    const path = initSnake(size, size);
+    const turns = 18 * size * size;
+    for (let i = 0; i < turns; i++) backbite(path, size, size);
+    return path;
+  }
+
+  function applyPath() {
+    const path = createSpecialPath();
+    const order = new Map(path.map(([r, c], i) => [`${r},${c}`, i]));
+    cells.forEach((cell, i) => {
+      const r = Math.floor(i / size);
+      const c = i % size;
+      cell.style.setProperty('--i', order.get(`${r},${c}`));
+      cell.style.animation = 'none';
+      cell.offsetHeight;
+      cell.style.animation = '';
+    });
+  }
+
+  applyPath();
+  setInterval(applyPath, cycleMs);
 })();
 </script>
 
