@@ -36,12 +36,18 @@
       z-index:0;
     }
     .ambient-board span {
-      border:1px solid #8aa5a0;
+      --cell-bg:rgba(255,255,255,.72);
+      --cell-fade-bg:rgba(255,255,255,.62);
+      --cell-color:rgba(31,41,55,.68);
+      --cell-fade-color:rgba(31,41,55,.48);
+      --cell-border:#8aa5a0;
+      position:relative;
+      border:1px solid var(--cell-border);
       border-radius:6px;
-      background:rgba(255,255,255,.72);
+      background:var(--cell-bg);
       display:grid;
       place-items:center;
-      color:rgba(31,41,55,.68);
+      color:var(--cell-color);
       font-weight:900;
       font-size:clamp(9px, 1.5vw, 15px);
       animation:answerTrace var(--trace-duration, 6.8s) linear infinite;
@@ -50,11 +56,30 @@
     .ambient-board span:nth-child(3n) { border-color:#9fb0ef; }
     .ambient-board span:nth-child(4n) { border-color:#9ed8b4; }
     .ambient-board span:nth-child(5n) { border-color:#e9ca63; }
+    .ambient-board span.prime {
+      --cell-bg:rgba(219,255,235,.88);
+      --cell-fade-bg:rgba(200,247,222,.76);
+      --cell-color:rgba(12,84,54,.9);
+      --cell-fade-color:rgba(12,84,54,.72);
+      --cell-border:#15935f;
+      text-shadow:0 1px 0 rgba(255,255,255,.5);
+    }
+    .ambient-board span.prime::after {
+      content:"";
+      position:absolute;
+      width:6px;
+      height:6px;
+      top:5px;
+      right:5px;
+      border-radius:50%;
+      background:#0f766e;
+      box-shadow:0 0 0 2px rgba(255,255,255,.68);
+    }
     @keyframes answerTrace {
       0%, 9% {
-        background:rgba(255,255,255,.72);
+        background:var(--cell-bg);
         box-shadow:none;
-        color:rgba(31,41,55,.58);
+        color:var(--cell-color);
         transform:scale(1);
       }
       11%, 78% {
@@ -64,9 +89,9 @@
         transform:scale(1.03);
       }
       88%, 100% {
-        background:rgba(255,255,255,.62);
+        background:var(--cell-fade-bg);
         box-shadow:none;
-        color:rgba(31,41,55,.48);
+        color:var(--cell-fade-color);
         transform:scale(1);
       }
     }
@@ -545,6 +570,14 @@
   const cycleMs = 7600;
   board.style.setProperty('--trace-duration', `${cycleMs / 1000}s`);
 
+  function isPrime(value) {
+    if (value < 2) return false;
+    for (let d = 2; d * d <= value; d++) {
+      if (value % d === 0) return false;
+    }
+    return true;
+  }
+
   function initSnake(rows, cols) {
     const p = [];
     for (let r = 0; r < rows; r++) {
@@ -593,7 +626,9 @@
   for (let r = 0; r < size; r++) {
     for (let c = 0; c < size; c++) {
       const cell = document.createElement('span');
-      cell.textContent = String(r * size + c + 1);
+      const value = r * size + c + 1;
+      cell.textContent = String(value);
+      if (isPrime(value)) cell.classList.add('prime');
       cells.push(cell);
       board.appendChild(cell);
     }
