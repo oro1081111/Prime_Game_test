@@ -96,8 +96,7 @@
       margin-top:2px;
     }
     .top-actions,
-    .auth-actions,
-    .quick-actions {
+    .auth-actions {
       display:flex;
       gap:8px;
       flex-wrap:wrap;
@@ -130,7 +129,7 @@
       flex:1;
       display:grid;
       grid-template-columns:minmax(0, 1fr) minmax(300px, 380px);
-      gap:14px;
+      gap:10px;
       align-items:stretch;
     }
     .main-panel,
@@ -168,30 +167,11 @@
       max-width:650px;
       margin:0;
     }
-    .compact-row {
-      display:grid;
-      grid-template-columns:repeat(3, minmax(0, 1fr));
-      gap:8px;
-    }
-    .stat {
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.7);
-      border-radius:8px;
-      padding:9px 10px;
-    }
-    .stat b {
-      display:block;
-      font-size:20px;
-    }
-    .stat span {
-      color:var(--muted);
-      font-size:12px;
-    }
     .side-panel {
-      padding:14px;
+      padding:10px;
       display:flex;
       flex-direction:column;
-      gap:12px;
+      gap:8px;
     }
     .panel-head {
       display:flex;
@@ -202,24 +182,25 @@
     .panel-title {
       font-weight:900;
       line-height:1.15;
+      font-size:15px;
     }
     #authStatus {
       max-width:100%;
       color:var(--muted);
-      font-size:12px;
+      font-size:11px;
       overflow:hidden;
       text-overflow:ellipsis;
       white-space:nowrap;
       margin-top:3px;
     }
     .account-badge {
-      max-width:138px;
+      max-width:120px;
       border:1px solid var(--line);
       background:#fff;
       border-radius:999px;
-      padding:7px 9px;
+      padding:5px 8px;
       color:var(--muted);
-      font-size:12px;
+      font-size:11px;
       font-weight:800;
       overflow:hidden;
       text-overflow:ellipsis;
@@ -233,7 +214,7 @@
     }
     .field label {
       display:block;
-      margin-bottom:5px;
+      margin-bottom:4px;
       color:var(--muted);
       font-size:12px;
       font-weight:700;
@@ -245,13 +226,13 @@
     }
     #playerName {
       width:100%;
-      min-height:40px;
+      min-height:36px;
       border:1px solid var(--line);
       border-radius:8px;
-      padding:9px 11px;
+      padding:8px 10px;
       background:#fff;
       color:var(--ink);
-      font-size:16px;
+      font-size:15px;
     }
     .auth-actions .btn {
       flex:1 1 120px;
@@ -284,7 +265,7 @@
       min-height:0;
     }
     .mode-card {
-      padding:12px;
+      padding:10px;
       display:flex;
       flex-direction:column;
       gap:10px;
@@ -298,12 +279,15 @@
     .mode-card h3 {
       margin:0;
       font-size:17px;
+      display:flex;
+      align-items:baseline;
+      gap:6px;
+      flex-wrap:wrap;
     }
-    .mode-card p {
-      margin:5px 0 0;
-      color:#586273;
-      font-size:13px;
-      line-height:1.45;
+    .mode-note {
+      color:#98a2b3;
+      font-size:12px;
+      font-weight:700;
     }
     .difficulty {
       display:inline-flex;
@@ -406,26 +390,9 @@
         -webkit-box-orient:vertical;
         overflow:hidden;
       }
-      .quick-actions {
-        display:grid;
-        grid-template-columns:1fr 1fr;
-        gap:8px;
-      }
-      .compact-row {
-        grid-template-columns:repeat(3, 1fr);
-      }
-      .stat {
-        padding:7px 8px;
-      }
-      .stat b {
-        font-size:17px;
-      }
-      .stat span {
-        font-size:11px;
-      }
       .side-panel {
-        padding:10px;
-        gap:8px;
+        padding:8px;
+        gap:6px;
         box-shadow:0 10px 22px rgba(31,41,55,.08);
       }
       .name-row {
@@ -437,8 +404,8 @@
         gap:8px;
       }
       .auth-actions .btn {
-        min-height:36px;
-        padding:8px 9px;
+        min-height:34px;
+        padding:7px 9px;
         font-size:13px;
       }
       .section-head {
@@ -449,14 +416,14 @@
         gap:8px;
       }
       .mode-card {
-        padding:10px;
-        gap:8px;
-      }
-      .mode-card p {
-        display:none;
+        padding:8px 10px;
+        gap:7px;
       }
       .mode-card h3 {
         font-size:16px;
+      }
+      .mode-note {
+        font-size:11px;
       }
       .free-card {
         display:grid;
@@ -475,7 +442,6 @@
         font-size:30px;
       }
       .lead,
-      .stat span,
       #authStatus {
         font-size:11px;
       }
@@ -521,15 +487,6 @@
         <h1>漢米爾頓質數遊戲</h1>
       </div>
       <p class="lead">沿著相鄰格子走完指定路徑，避開質數限制，用最短時間和最少取消次數登上排行榜。</p>
-      <div class="quick-actions">
-        <button class="btn dark" data-mode="basic" data-size="5">快速開始</button>
-        <button class="btn secondary" id="goFree">自由模式</button>
-      </div>
-      <div class="compact-row" aria-label="遊戲摘要">
-        <div class="stat"><b>3</b><span>模式</span></div>
-        <div class="stat"><b>5/7/10</b><span>棋盤</span></div>
-        <div class="stat"><b>ID</b><span>同名區分</span></div>
-      </div>
     </section>
 
     <aside class="side-panel" aria-label="玩家設定">
@@ -567,8 +524,7 @@
         <article class="mode-card">
           <div class="mode-top">
             <div>
-              <h3>基本模式</h3>
-              <p>從 1 開始，質數形成路線限制。</p>
+              <h3>基本模式 <span class="mode-note">從 1 開始</span></h3>
             </div>
             <span class="difficulty">入門</span>
           </div>
@@ -582,8 +538,7 @@
         <article class="mode-card">
           <div class="mode-top">
             <div>
-              <h3>困難模式</h3>
-              <p>從 105 開始，質數密度降低。</p>
+              <h3>困難模式 <span class="mode-note">105 起始</span></h3>
             </div>
             <span class="difficulty">進階</span>
           </div>
@@ -597,8 +552,7 @@
         <article class="mode-card">
           <div class="mode-top">
             <div>
-              <h3>隱藏模式</h3>
-              <p>只顯示質數位置，挑戰記憶與推理。</p>
+              <h3>隱藏模式 <span class="mode-note">隱藏數字</span></h3>
             </div>
             <span class="difficulty">記憶</span>
           </div>
@@ -612,8 +566,7 @@
         <article class="mode-card free-card">
           <div class="mode-top">
             <div>
-              <h3>自由模式</h3>
-              <p>自訂棋盤、起始數字、提示與匯出。</p>
+              <h3>自由模式 <span class="mode-note">自訂玩法</span></h3>
             </div>
             <span class="difficulty">自訂</span>
           </div>
