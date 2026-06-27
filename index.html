@@ -36,11 +36,11 @@
       z-index:0;
     }
     .ambient-board span {
-      --cell-bg:rgba(255,255,255,.72);
-      --cell-fade-bg:rgba(255,255,255,.62);
-      --cell-color:rgba(31,41,55,.68);
-      --cell-fade-color:rgba(31,41,55,.48);
-      --cell-border:#8aa5a0;
+      --cell-bg:#e8f7ff;
+      --cell-fade-bg:#dff2fb;
+      --cell-color:#075985;
+      --cell-fade-color:#075985;
+      --cell-border:#8bd3f7;
       position:relative;
       border:1px solid var(--cell-border);
       border-radius:6px;
@@ -57,30 +57,19 @@
     .ambient-board span:nth-child(4n) { border-color:#9ed8b4; }
     .ambient-board span:nth-child(5n) { border-color:#e9ca63; }
     .ambient-board span.prime {
-      --cell-bg:rgba(240,232,255,.9);
-      --cell-fade-bg:rgba(230,221,255,.78);
-      --cell-color:rgba(75,47,175,.92);
-      --cell-fade-color:rgba(75,47,175,.72);
+      --cell-bg:#f0e8ff;
+      --cell-fade-bg:#e6ddff;
+      --cell-color:#4b2faf;
+      --cell-fade-color:#4b2faf;
       --cell-border:#a78bfa;
       text-shadow:0 1px 0 rgba(255,255,255,.5);
     }
     .ambient-board span.one {
-      --cell-bg:rgba(255,240,179,.92);
-      --cell-fade-bg:rgba(255,236,153,.78);
-      --cell-color:rgba(122,77,0,.9);
-      --cell-fade-color:rgba(122,77,0,.72);
+      --cell-bg:#fff0b3;
+      --cell-fade-bg:#ffec99;
+      --cell-color:#7a4d00;
+      --cell-fade-color:#7a4d00;
       --cell-border:#e6b800;
-    }
-    .ambient-board span.prime::after {
-      content:"";
-      position:absolute;
-      width:6px;
-      height:6px;
-      top:5px;
-      right:5px;
-      border-radius:50%;
-      background:#7c3aed;
-      box-shadow:0 0 0 2px rgba(255,255,255,.68);
     }
     @keyframes answerTrace {
       0%, 9% {

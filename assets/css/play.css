@@ -44,17 +44,6 @@
   --cell-color: #4b2faf;
   font-weight: 800;
 }
-.cell.prime::after {
-  content: "";
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  top: 5px;
-  right: 5px;
-  border-radius: 50%;
-  background: #7c3aed;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, .72);
-}
 .cell.filled {
   --cell-bg: #e8f7ff;
   --cell-border: #8bd3f7;
