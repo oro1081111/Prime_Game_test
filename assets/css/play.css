@@ -98,6 +98,9 @@
   text-align: center;
   line-height: 1.6;
 }
+.modal.start {
+  min-height: 229px;
+}
 
 .modal .big {
   font-size: clamp(28px,10vw,120px);
