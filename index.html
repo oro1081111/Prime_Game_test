@@ -57,12 +57,19 @@
     .ambient-board span:nth-child(4n) { border-color:#9ed8b4; }
     .ambient-board span:nth-child(5n) { border-color:#e9ca63; }
     .ambient-board span.prime {
-      --cell-bg:rgba(219,255,235,.88);
-      --cell-fade-bg:rgba(200,247,222,.76);
-      --cell-color:rgba(12,84,54,.9);
-      --cell-fade-color:rgba(12,84,54,.72);
-      --cell-border:#15935f;
+      --cell-bg:rgba(240,232,255,.9);
+      --cell-fade-bg:rgba(230,221,255,.78);
+      --cell-color:rgba(75,47,175,.92);
+      --cell-fade-color:rgba(75,47,175,.72);
+      --cell-border:#a78bfa;
       text-shadow:0 1px 0 rgba(255,255,255,.5);
+    }
+    .ambient-board span.one {
+      --cell-bg:rgba(255,240,179,.92);
+      --cell-fade-bg:rgba(255,236,153,.78);
+      --cell-color:rgba(122,77,0,.9);
+      --cell-fade-color:rgba(122,77,0,.72);
+      --cell-border:#e6b800;
     }
     .ambient-board span.prime::after {
       content:"";
@@ -72,7 +79,7 @@
       top:5px;
       right:5px;
       border-radius:50%;
-      background:#0f766e;
+      background:#7c3aed;
       box-shadow:0 0 0 2px rgba(255,255,255,.68);
     }
     @keyframes answerTrace {
@@ -628,6 +635,7 @@
       const cell = document.createElement('span');
       const value = r * size + c + 1;
       cell.textContent = String(value);
+      if (value === 1) cell.classList.add('one');
       if (isPrime(value)) cell.classList.add('prime');
       cells.push(cell);
       board.appendChild(cell);

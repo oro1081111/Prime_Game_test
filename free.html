@@ -71,20 +71,28 @@
 
     .board {
       display: grid;
-      gap: 2px
+      gap: clamp(3px, .55vw, 5px)
     }
 
     .cell {
-      border: 1px solid #999;
+      --cell-bg: rgba(255, 255, 255, .78);
+      --cell-border: #8aa5a0;
+      --cell-color: #172033;
+      position: relative;
+      border: 1px solid var(--cell-border);
+      border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #fff;
+      background: var(--cell-bg);
+      color: var(--cell-color);
       user-select: none;
       cursor: pointer;
       aspect-ratio: 1/1;
       font-size: clamp(10px, 2.4vw, 16px);
-      transition: background .12s, border-color .12s
+      font-weight: 800;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, .64) inset;
+      transition: background .14s, border-color .14s, box-shadow .14s, transform .14s, color .14s
     }
 
     .cell.fixed {
@@ -92,23 +100,37 @@
     }
 
     .cell.one {
-      background: #fff0b3;
-      border-color: #e6b800;
-      color: #7a4d00;
+      --cell-bg: #fff0b3;
+      --cell-border: #e6b800;
+      --cell-color: #7a4d00;
       font-weight: 800
     }
 
     .cell.prime {
-      background: #f0e8ff;
-      border-color: #c9b3ff;
-      color: #4b2faf;
-      font-weight: 700
+      --cell-bg: #f0e8ff;
+      --cell-border: #a78bfa;
+      --cell-color: #4b2faf;
+      font-weight: 800
+    }
+
+    .cell.prime::after {
+      content: "";
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      top: 5px;
+      right: 5px;
+      border-radius: 50%;
+      background: #7c3aed;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, .72)
     }
 
     .cell.next-prime-highlight {
-      border: none !important;
-      background: #e6ffe9 !important;
-      box-shadow: 0 0 0 2px #b9f5c1 inset
+      --cell-bg: #e6ffe9;
+      --cell-border: #22c55e;
+      --cell-color: #14532d;
+      transform: scale(1.03);
+      box-shadow: 0 0 0 2px rgba(20, 83, 45, .42) inset, 0 8px 22px rgba(15, 118, 110, .22)
     }
 
     .cell.hint-wrong {
@@ -118,8 +140,10 @@
     }
 
     .cell.filled {
-      background: #e8f7ff;
-      font-weight: 700
+      --cell-bg: #e8f7ff;
+      --cell-border: #8bd3f7;
+      --cell-color: #075985;
+      font-weight: 800
     }
 
     .cell.wrong {
