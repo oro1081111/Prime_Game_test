@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import {
-  getFirestore, doc, getDoc, setDoc, serverTimestamp,
-  collection, getDocs
+  getFirestore, doc, serverTimestamp,
+  collection, getDocs, runTransaction
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 export const firebaseConfig = {
@@ -38,6 +38,15 @@ function compareRows(a, b, lb) {
     || (scoreTime(a) - scoreTime(b));
 }
 
+function validateScoreInput({ uid, name, mode, size, ms, undos }) {
+  if (typeof uid !== 'string' || !uid) throw new Error('invalid uid');
+  if (typeof name !== 'string' || name.length < 1 || name.length > 10) throw new Error('invalid name');
+  if (!['basic', 'hard', 'hidden'].includes(mode)) throw new Error('invalid mode');
+  if (![5, 7, 10].includes(Number(size))) throw new Error('invalid size');
+  if (!Number.isInteger(Number(ms)) || Number(ms) < 1000 || Number(ms) > 60 * 60 * 1000) throw new Error('invalid time');
+  if (!Number.isInteger(Number(undos)) || Number(undos) < 0 || Number(undos) > Number(size) * Number(size) * 4) throw new Error('invalid undo count');
+}
+
 async function fetchScoreRows({ mode, size, lb = 'time' }) {
   const snap = await getDocs(collection(db, 'scores'));
   return snap.docs
@@ -47,31 +56,31 @@ async function fetchScoreRows({ mode, size, lb = 'time' }) {
 }
 
 /**
- * 寫入個人最佳成績（時間槽 / 取消槽各一 doc，以 setDoc 覆寫）
+ * 寫入個人最佳成績（時間槽 / 取消槽各一 doc，以 transaction 防止較差紀錄覆寫）
  * docId 格式：{uid}__{mode}__{size}__time | __undo
  * 回傳 { beatTime, beatUndo }
  */
 export async function submitScore({ uid, name, mode, size, ms, undos }) {
+  validateScoreInput({ uid, name, mode, size, ms, undos });
   const timeId = `${uid}__${mode}__${size}__time`;
   const undoId  = `${uid}__${mode}__${size}__undo`;
 
-  const [timeSnap, undoSnap] = await Promise.all([
-    getDoc(doc(db, 'scores', timeId)),
-    getDoc(doc(db, 'scores', undoId))
-  ]);
-  const prevTime = timeSnap.exists() ? timeSnap.data() : null;
-  const prevUndo = undoSnap.exists()  ? undoSnap.data()  : null;
-
-  const beatTime = !prevTime || ms < prevTime.ms || (ms === prevTime.ms && undos < prevTime.undos);
-  const beatUndo = !prevUndo || undos < prevUndo.undos || (undos === prevUndo.undos && ms < prevUndo.ms);
-
-  const record = { uid, name, mode, size: Number(size), ms: Number(ms), undos: Number(undos), updatedAt: serverTimestamp() };
-  const writes = [];
-  if (beatTime) writes.push(setDoc(doc(db, 'scores', timeId), { ...record, kind: 'time' }));
-  if (beatUndo) writes.push(setDoc(doc(db, 'scores', undoId), { ...record, kind: 'undo' }));
-  await Promise.all(writes);
-
-  return { beatTime, beatUndo };
+  return runTransaction(db, async tx => {
+    const timeRef = doc(db, 'scores', timeId);
+    const undoRef = doc(db, 'scores', undoId);
+    const [timeSnap, undoSnap] = await Promise.all([
+      tx.get(timeRef),
+      tx.get(undoRef)
+    ]);
+    const prevTime = timeSnap.exists() ? timeSnap.data() : null;
+    const prevUndo = undoSnap.exists()  ? undoSnap.data()  : null;
+    const beatTime = !prevTime || ms < prevTime.ms || (ms === prevTime.ms && undos < prevTime.undos);
+    const beatUndo = !prevUndo || undos < prevUndo.undos || (undos === prevUndo.undos && ms < prevUndo.ms);
+    const record = { uid, name, mode, size: Number(size), ms: Number(ms), undos: Number(undos), updatedAt: serverTimestamp() };
+    if (beatTime) tx.set(timeRef, { ...record, kind: 'time' });
+    if (beatUndo) tx.set(undoRef, { ...record, kind: 'undo' });
+    return { beatTime, beatUndo };
+  });
 }
 
 /**

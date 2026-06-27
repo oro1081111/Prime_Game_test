@@ -1,0 +1,97 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isGoogleUser() {
+      return signedIn()
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+
+    function validMode(mode) {
+      return mode in ['basic', 'hard', 'hidden'];
+    }
+
+    function validSize(size) {
+      return size in [5, 7, 10];
+    }
+
+    function validKind(kind) {
+      return kind in ['time', 'undo'];
+    }
+
+    function validScoreData() {
+      return request.resource.data.keys().hasOnly([
+          'uid', 'name', 'mode', 'size', 'ms', 'undos', 'updatedAt', 'kind'
+        ])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 1
+        && request.resource.data.name.size() <= 10
+        && validMode(request.resource.data.mode)
+        && validSize(request.resource.data.size)
+        && validKind(request.resource.data.kind)
+        && request.resource.data.ms is int
+        && request.resource.data.ms >= 1000
+        && request.resource.data.ms <= 3600000
+        && request.resource.data.undos is int
+        && request.resource.data.undos >= 0
+        && request.resource.data.undos <= request.resource.data.size * request.resource.data.size * 4
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function validScoreId(scoreId) {
+      return (
+          request.resource.data.size == 5
+          && scoreId == request.auth.uid + '__' + request.resource.data.mode + '__5__' + request.resource.data.kind
+        )
+        || (
+          request.resource.data.size == 7
+          && scoreId == request.auth.uid + '__' + request.resource.data.mode + '__7__' + request.resource.data.kind
+        )
+        || (
+          request.resource.data.size == 10
+          && scoreId == request.auth.uid + '__' + request.resource.data.mode + '__10__' + request.resource.data.kind
+        );
+    }
+
+    function isBetterTime(scoreId) {
+      return !exists(/databases/$(database)/documents/scores/$(scoreId))
+        || request.resource.data.ms < resource.data.ms
+        || (
+          request.resource.data.ms == resource.data.ms
+          && request.resource.data.undos < resource.data.undos
+        );
+    }
+
+    function isBetterUndo(scoreId) {
+      return !exists(/databases/$(database)/documents/scores/$(scoreId))
+        || request.resource.data.undos < resource.data.undos
+        || (
+          request.resource.data.undos == resource.data.undos
+          && request.resource.data.ms < resource.data.ms
+        );
+    }
+
+    match /scores/{scoreId} {
+      allow read: if signedIn();
+
+      allow create, update: if isGoogleUser()
+        && validScoreData()
+        && validScoreId(scoreId)
+        && (
+          (request.resource.data.kind == 'time' && isBetterTime(scoreId))
+          || (request.resource.data.kind == 'undo' && isBetterUndo(scoreId))
+        );
+
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

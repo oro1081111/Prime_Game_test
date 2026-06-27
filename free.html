@@ -561,6 +561,15 @@
       const pngBtn = document.getElementById('pngBtn');
       const importFileEl = document.getElementById('importFile');
 
+      const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[ch]));
+      const sanitizeName = (value) => String(value || '')
+        .replace(/[<>`"'&]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 10) || 'Oro';
+
       // State
       let R = 0, C = 0, startNum = 1;
       let path = [], gridOrder = [];
@@ -761,11 +770,11 @@
         const modeDesc = `${startLabel}, ${hiddenLabel}尺寸${sizeLabel}`;
 
         // 玩家名稱（從 localStorage 或 query 讀取，預設 Oro）
-        const PLAYER = localStorage.getItem('playerName') || 'Oro';
+        const PLAYER = sanitizeName(localStorage.getItem('playerName') || 'Oro');
         showOverlay(`
       <h2>成功完成！</h2>
        <p>模式：${modeDesc}</p>
-      <p>玩家：<b>${PLAYER}</b></p>
+      <p>玩家：<b>${escapeHtml(PLAYER)}</b></p>
       <p>用時：<b>${time}</b></p>
       <p>取消次數：<b>${undoCount}</b></p>
       <div class="row">

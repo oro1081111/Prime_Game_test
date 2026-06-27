@@ -49,11 +49,23 @@
   <script>
     (() => {
       const q = Router.getQuery();
-      const MODE = (q.mode || 'basic');
-      const SIZE = parseInt(q.size || '7', 10);
-      const PLAYER = (q.name || localStorage.getItem('playerName') || '玩家').slice(0, 10);
-      const START = parseInt(q.start || '1', 10);
-      const HIDDEN = q.hidden === '1' || q.hidden === 1;
+      const allowedModes = new Set(['basic', 'hard', 'hidden']);
+      const allowedSizes = new Set([5, 7, 10]);
+      const MODE = allowedModes.has(q.mode) ? q.mode : 'basic';
+      const parsedSize = parseInt(q.size || '7', 10);
+      const SIZE = allowedSizes.has(parsedSize) ? parsedSize : 7;
+      const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[ch]));
+      const sanitizeName = (value) => String(value || '')
+        .replace(/[<>`"'&]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 10) || '玩家';
+      const PLAYER = sanitizeName(q.name || localStorage.getItem('playerName') || '玩家');
+      const PLAYER_HTML = escapeHtml(PLAYER);
+      const START = MODE === 'hard' ? 105 : 1;
+      const HIDDEN = MODE === 'hidden';
 
       const statusEl = document.getElementById('status');
       const boardEl = document.getElementById('board');
@@ -239,7 +251,7 @@
         const time = fmt(totalMsRounded);
         showOverlay(`
       <h2>成功完成！</h2>
-      <p>模式：<b>${modeLabel}${SIZE}階</b>　玩家：<b>${PLAYER}</b></p>
+      <p>模式：<b>${modeLabel}${SIZE}階</b>　玩家：<b>${PLAYER_HTML}</b></p>
       <p>用時：<b>${time}</b>　取消：<b>${undoCount}</b> 次</p>
       <div id="resultArea" class="result-area"><p class="result-pending">計算排名中…</p></div>
       <div class="row">
@@ -408,8 +420,8 @@
       setPersistence, browserLocalPersistence
     } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
     import {
-      getFirestore, doc, getDoc, setDoc, serverTimestamp,
-      collection, getDocs, query, where, getCountFromServer
+      getFirestore, doc, serverTimestamp,
+      collection, getDocs, query, where, getCountFromServer, runTransaction
     } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -487,6 +499,14 @@
       return (a.ms - b.ms) || ((a.undos || 0) - (b.undos || 0)) || (timestampMs(a.updatedAt || a.createdAt) - timestampMs(b.updatedAt || b.createdAt));
     }
 
+    function validateScoreInput({ mode, size, name, ms, undos }) {
+      if (!['basic', 'hard', 'hidden'].includes(mode)) throw new Error('invalid mode');
+      if (![5, 7, 10].includes(Number(size))) throw new Error('invalid size');
+      if (typeof name !== 'string' || name.length < 1 || name.length > 10) throw new Error('invalid name');
+      if (!Number.isInteger(Number(ms)) || Number(ms) < 1000 || Number(ms) > 60 * 60 * 1000) throw new Error('invalid time');
+      if (!Number.isInteger(Number(undos)) || Number(undos) < 0 || Number(undos) > Number(size) * Number(size) * 4) throw new Error('invalid undo count');
+    }
+
     function withTimeout(promise, ms, message) {
       return Promise.race([
         promise,
@@ -547,36 +567,43 @@
     }
 
     async function saveScoreAndRank({ mode, size, name, ms, undos, onResult }) {
+      validateScoreInput({ mode, size, name, ms, undos });
       const user = await ensureAuth();
       const uid = user.uid;
       const timeId = `${uid}__${mode}__${size}__time`;
       const undoId = `${uid}__${mode}__${size}__undo`;
 
-      const [timeSnap, undoSnap] = await Promise.all([
-        getDoc(doc(db, 'scores', timeId)),
-        getDoc(doc(db, 'scores', undoId))
-      ]);
-      const prevTime = timeSnap.exists() ? timeSnap.data() : null;
-      const prevUndo = undoSnap.exists() ? undoSnap.data() : null;
-
-      const beatTime = !prevTime
-        || ms < prevTime.ms
-        || (ms === prevTime.ms && undos < prevTime.undos);
-      const beatUndo = !prevUndo
-        || undos < prevUndo.undos
-        || (undos === prevUndo.undos && ms < prevUndo.ms);
-
-      const record = { uid, name, mode, size: Number(size), ms: Number(ms), undos: Number(undos), updatedAt: serverTimestamp() };
-      const writes = [];
-      if (beatTime) writes.push(setDoc(doc(db, 'scores', timeId), { ...record, kind: 'time' }));
-      if (beatUndo) writes.push(setDoc(doc(db, 'scores', undoId), { ...record, kind: 'undo' }));
-      await Promise.all(writes);
+      const timeRef = doc(db, 'scores', timeId);
+      const undoRef = doc(db, 'scores', undoId);
+      const saveResult = await runTransaction(db, async tx => {
+        const [timeSnap, undoSnap] = await Promise.all([
+          tx.get(timeRef),
+          tx.get(undoRef)
+        ]);
+        const prevTime = timeSnap.exists() ? timeSnap.data() : null;
+        const prevUndo = undoSnap.exists() ? undoSnap.data() : null;
+        const beatTime = !prevTime
+          || ms < prevTime.ms
+          || (ms === prevTime.ms && undos < prevTime.undos);
+        const beatUndo = !prevUndo
+          || undos < prevUndo.undos
+          || (undos === prevUndo.undos && ms < prevUndo.ms);
+        const record = { uid, name, mode, size: Number(size), ms: Number(ms), undos: Number(undos), updatedAt: serverTimestamp() };
+        if (beatTime) tx.set(timeRef, { ...record, kind: 'time' });
+        if (beatUndo) tx.set(undoRef, { ...record, kind: 'undo' });
+        return {
+          beatTime,
+          beatUndo,
+          prevTimeMs: prevTime?.ms ?? null,
+          prevUndos: prevUndo?.undos ?? null,
+        };
+      });
 
       const resultBase = {
-        beatTime,
-        beatUndo,
-        prevTimeMs: prevTime?.ms ?? null,
-        prevUndos: prevUndo?.undos ?? null,
+        beatTime: saveResult.beatTime,
+        beatUndo: saveResult.beatUndo,
+        prevTimeMs: saveResult.prevTimeMs,
+        prevUndos: saveResult.prevUndos,
       };
       if (typeof onResult === 'function') {
         onResult({
