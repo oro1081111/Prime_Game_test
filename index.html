@@ -38,19 +38,36 @@
     .ambient-board span {
       border:1px solid #8aa5a0;
       border-radius:8px;
-      background:#fff;
+      background:rgba(255,255,255,.54);
       display:grid;
       place-items:center;
-      color:#1f2937;
+      color:rgba(31,41,55,.58);
       font-weight:900;
-      animation:floatCell 5.8s ease-in-out infinite;
+      animation:answerTrace 3.4s linear infinite;
+      animation-delay:calc(var(--i) * .055s);
     }
-    .ambient-board span:nth-child(3n) { background:#e0e7ff; color:#3730a3; }
-    .ambient-board span:nth-child(4n) { background:#dcfce7; color:#166534; animation-delay:.55s; }
-    .ambient-board span:nth-child(5n) { background:#fff1b8; color:#854d0e; animation-delay:1s; }
-    @keyframes floatCell {
-      0%, 100% { transform:translateY(0); }
-      50% { transform:translateY(-8px); }
+    .ambient-board span:nth-child(3n) { border-color:#9fb0ef; }
+    .ambient-board span:nth-child(4n) { border-color:#9ed8b4; }
+    .ambient-board span:nth-child(5n) { border-color:#e9ca63; }
+    @keyframes answerTrace {
+      0%, 18% {
+        background:rgba(255,255,255,.54);
+        box-shadow:none;
+        color:rgba(31,41,55,.42);
+        transform:scale(1);
+      }
+      24%, 36% {
+        background:rgba(220,252,231,.92);
+        box-shadow:0 0 0 2px rgba(22,101,52,.16) inset;
+        color:rgba(22,101,52,.84);
+        transform:scale(1.03);
+      }
+      46%, 100% {
+        background:rgba(238,242,255,.58);
+        box-shadow:none;
+        color:rgba(31,41,55,.38);
+        transform:scale(1);
+      }
     }
     .wrap {
       max-width:1080px;
@@ -168,21 +185,23 @@
       margin:0;
     }
     .side-panel {
-      padding:10px;
-      display:flex;
-      flex-direction:column;
+      padding:8px 10px;
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) auto;
       gap:8px;
+      align-items:end;
     }
     .panel-head {
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:10px;
+      gap:8px;
+      grid-column:1 / -1;
     }
     .panel-title {
       font-weight:900;
       line-height:1.15;
-      font-size:15px;
+      font-size:13px;
     }
     #authStatus {
       max-width:100%;
@@ -191,14 +210,14 @@
       overflow:hidden;
       text-overflow:ellipsis;
       white-space:nowrap;
-      margin-top:3px;
+      margin-top:0;
     }
     .account-badge {
-      max-width:120px;
+      max-width:108px;
       border:1px solid var(--line);
       background:#fff;
       border-radius:999px;
-      padding:5px 8px;
+      padding:4px 7px;
       color:var(--muted);
       font-size:11px;
       font-weight:800;
@@ -214,28 +233,28 @@
     }
     .field label {
       display:block;
-      margin-bottom:4px;
+      margin-bottom:3px;
       color:var(--muted);
-      font-size:12px;
+      font-size:11px;
       font-weight:700;
     }
     .name-row {
       display:grid;
       grid-template-columns:1fr auto;
-      gap:8px;
+      gap:6px;
     }
     #playerName {
       width:100%;
-      min-height:36px;
+      min-height:34px;
       border:1px solid var(--line);
       border-radius:8px;
-      padding:8px 10px;
+      padding:7px 9px;
       background:#fff;
       color:var(--ink);
       font-size:15px;
     }
     .auth-actions .btn {
-      flex:1 1 120px;
+      min-width:96px;
     }
     .mode-section {
       display:flex;
@@ -337,7 +356,7 @@
       .ambient-board {
         width:118vw;
         inset:auto -58px -24px auto;
-        opacity:.09;
+        opacity:.12;
         gap:6px;
       }
       .wrap {
@@ -391,22 +410,43 @@
         overflow:hidden;
       }
       .side-panel {
-        padding:8px;
+        padding:7px 8px;
         gap:6px;
         box-shadow:0 10px 22px rgba(31,41,55,.08);
       }
+      .panel-head {
+        grid-column:auto;
+        align-self:center;
+        display:block;
+      }
+      .field {
+        grid-column:1;
+      }
+      .panel-title {
+        display:none;
+      }
+      .account-badge {
+        display:none;
+      }
+      .field label {
+        display:none;
+      }
       .name-row {
-        grid-template-columns:1fr 62px;
+        grid-template-columns:1fr 54px;
       }
       .auth-actions {
-        display:grid;
-        grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
-        gap:8px;
+        grid-column:2;
+        grid-row:1 / span 2;
+        align-self:end;
+        display:flex;
+        gap:6px;
+        justify-content:flex-end;
       }
       .auth-actions .btn {
+        min-width:82px;
         min-height:34px;
-        padding:7px 9px;
-        font-size:13px;
+        padding:7px 8px;
+        font-size:12px;
       }
       .section-head {
         display:none;
@@ -458,11 +498,11 @@
 </head>
 <body>
 <div class="ambient-board" aria-hidden="true">
-  <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
-  <span>6</span><span>7</span><span>8</span><span>9</span><span>10</span>
-  <span>11</span><span>12</span><span>13</span><span>14</span><span>15</span>
-  <span>16</span><span>17</span><span>18</span><span>19</span><span>20</span>
-  <span>21</span><span>22</span><span>23</span><span>24</span><span>25</span>
+  <span style="--i:0">1</span><span style="--i:1">2</span><span style="--i:2">3</span><span style="--i:3">4</span><span style="--i:4">5</span>
+  <span style="--i:9">6</span><span style="--i:8">7</span><span style="--i:7">8</span><span style="--i:6">9</span><span style="--i:5">10</span>
+  <span style="--i:10">11</span><span style="--i:11">12</span><span style="--i:12">13</span><span style="--i:13">14</span><span style="--i:14">15</span>
+  <span style="--i:19">16</span><span style="--i:18">17</span><span style="--i:17">18</span><span style="--i:16">19</span><span style="--i:15">20</span>
+  <span style="--i:20">21</span><span style="--i:21">22</span><span style="--i:22">23</span><span style="--i:23">24</span><span style="--i:24">25</span>
 </div>
 
 <div class="wrap">
