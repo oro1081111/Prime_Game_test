@@ -83,7 +83,7 @@
   align-items: center;
   justify-content: center;
   background: rgba(0,0,0,.55);   /* 單層半透明黑幕 */
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(10px);
   border-radius: 6px;
 }
 .overlay.show { display: flex; }
