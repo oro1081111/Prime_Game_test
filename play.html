@@ -98,11 +98,16 @@
         }, 10);
       };
       const stopTimer = () => {
-        if (!running) return;
-        elapsedBeforePause += performance.now() - tStart;
-        running = false;
-        clearInterval(tId);
-        tId = null;
+        if (running) {
+          elapsedBeforePause += performance.now() - tStart;
+          running = false;
+          clearInterval(tId);
+          tId = null;
+        }
+        const finalMs = Math.floor(elapsedBeforePause / 10) * 10;
+        elapsedBeforePause = finalMs;
+        clockEl.textContent = fmt(finalMs);
+        return finalMs;
       };
       const resetTimer = () => {
         clearInterval(tId);
@@ -228,10 +233,9 @@
         if (scoreSaved) return;
         scoreSaved = true;
         gameState = 'finished';
-        stopTimer();
+        const totalMsRounded = stopTimer();
         const pauseBtn = document.getElementById('pause');
         if (pauseBtn) pauseBtn.disabled = true;
-        const totalMsRounded = Math.round(elapsedBeforePause / 10) * 10;
         const time = fmt(totalMsRounded);
         showOverlay(`
       <h2>成功完成！</h2>
@@ -251,11 +255,11 @@
           window.saveScoreAndRank({
             mode: MODE, size: SIZE, name: PLAYER,
             ms: totalMsRounded, undos: undoCount,
-            onResult: ({ rank, beatTime, beatUndo, prevTimeMs, prevUndos }) => {
+            onResult: ({ rank, rankPending, rankFailed, beatTime, beatUndo, prevTimeMs, prevUndos }) => {
               const area = document.getElementById('resultArea');
               if (!area) return;
-              const rankLabel = rank !== null ? `第 ${rank} 名` : '第 1000+ 名';
-              let html = `<p>全球時間排名：<b>${rankLabel}</b></p>`;
+              const rankLabel = rankPending ? '計算中...' : (rankFailed ? '暫時無法計算' : (rank !== null ? `第 ${rank} 名` : '暫時無法計算'));
+              let html = `<p>本次速度排名：<b>${rankLabel}</b></p>`;
               if (beatTime) {
                 const prev = prevTimeMs != null ? `原 ${fmt(prevTimeMs)}` : '首次紀錄';
                 html += `<p class="record-new">✓ 最佳時間！（${prev}）</p>`;
@@ -405,7 +409,7 @@
     } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
     import {
       getFirestore, doc, getDoc, setDoc, serverTimestamp,
-      collection, getDocs
+      collection, getDocs, query, where, getCountFromServer
     } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -483,14 +487,63 @@
       return (a.ms - b.ms) || ((a.undos || 0) - (b.undos || 0)) || (timestampMs(a.updatedAt || a.createdAt) - timestampMs(b.updatedAt || b.createdAt));
     }
 
-    async function calculateTimeRank({ mode, size, timeId }) {
+    function withTimeout(promise, ms, message) {
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms))
+      ]);
+    }
+
+    async function countRows(constraints) {
+      const snap = await getCountFromServer(query(collection(db, 'scores'), ...constraints));
+      return snap.data().count || 0;
+    }
+
+    async function calculateCurrentTimeRank({ mode, size, ms, undos }) {
+      const base = [
+        where('mode', '==', mode),
+        where('size', '==', Number(size)),
+        where('kind', '==', 'time')
+      ];
+      const [betterByTime, betterByUndo] = await Promise.all([
+        countRows([...base, where('ms', '<', Number(ms))]),
+        countRows([
+          ...base,
+          where('ms', '==', Number(ms)),
+          where('undos', '<', Number(undos))
+        ])
+      ]);
+      return betterByTime + betterByUndo + 1;
+    }
+
+    async function calculateTimeRankFallback({ mode, size, ms, undos }) {
       const snap = await getDocs(collection(db, 'scores'));
       const rows = snap.docs
         .map(d => ({ id: d.id, ...d.data() }))
         .filter(row => row.mode === mode && Number(row.size) === Number(size) && row.kind === 'time')
         .sort(compareTimeRows);
-      const index = rows.findIndex(row => row.id === timeId);
-      return index === -1 ? null : index + 1;
+      const better = rows.filter(row =>
+        Number(row.ms) < Number(ms)
+        || (Number(row.ms) === Number(ms) && Number(row.undos || 0) < Number(undos))
+      ).length;
+      return better + 1;
+    }
+
+    async function calculateTimeRank({ mode, size, ms, undos }) {
+      try {
+        return await withTimeout(
+          calculateCurrentTimeRank({ mode, size, ms, undos }),
+          4500,
+          'rank count timeout'
+        );
+      } catch (err) {
+        console.warn('Rank count fallback', err);
+        return withTimeout(
+          calculateTimeRankFallback({ mode, size, ms, undos }),
+          9000,
+          'rank fallback timeout'
+        );
+      }
     }
 
     async function saveScoreAndRank({ mode, size, name, ms, undos, onResult }) {
@@ -519,15 +572,36 @@
       if (beatUndo) writes.push(setDoc(doc(db, 'scores', undoId), { ...record, kind: 'undo' }));
       await Promise.all(writes);
 
-      const rank = await calculateTimeRank({ mode, size, timeId });
+      const resultBase = {
+        beatTime,
+        beatUndo,
+        prevTimeMs: prevTime?.ms ?? null,
+        prevUndos: prevUndo?.undos ?? null,
+      };
+      if (typeof onResult === 'function') {
+        onResult({
+          ...resultBase,
+          rank: null,
+          rankPending: true,
+          rankFailed: false,
+        });
+      }
+
+      let rank = null;
+      let rankFailed = false;
+      try {
+        rank = await calculateTimeRank({ mode, size, ms, undos });
+      } catch (err) {
+        rankFailed = true;
+        console.error('Rank calculation failed', err);
+      }
 
       if (typeof onResult === 'function') {
         onResult({
+          ...resultBase,
           rank,
-          beatTime,
-          beatUndo,
-          prevTimeMs: prevTime?.ms ?? null,
-          prevUndos: prevUndo?.undos ?? null,
+          rankPending: false,
+          rankFailed,
         });
       }
     }

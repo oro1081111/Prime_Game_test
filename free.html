@@ -593,11 +593,16 @@
       };
 
       const stopTimer = () => {
-        if (!running) return;
-        elapsedBeforePause += performance.now() - tStart;
-        running = false;
-        clearInterval(tId);
-        tId = null;
+        if (running) {
+          elapsedBeforePause += performance.now() - tStart;
+          running = false;
+          clearInterval(tId);
+          tId = null;
+        }
+        const finalMs = Math.floor(elapsedBeforePause / 10) * 10;
+        elapsedBeforePause = finalMs;
+        clockEl.textContent = fmt(finalMs);
+        return finalMs;
       };
 
       const resetTimer = () => {
