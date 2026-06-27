@@ -158,10 +158,10 @@
     .mode-card {
       border:1px solid rgba(255,255,255,.5);
       border-radius:8px;
-      background:linear-gradient(145deg, rgba(255,255,255,.46), rgba(255,255,255,.18));
-      box-shadow:0 14px 34px rgba(31,41,55,.08), inset 0 1px 0 rgba(255,255,255,.58);
-      backdrop-filter:blur(10px) saturate(1.18);
-      -webkit-backdrop-filter:blur(10px) saturate(1.18);
+      background:linear-gradient(145deg, rgba(255,255,255,.62), rgba(255,255,255,.36));
+      box-shadow:0 15px 38px rgba(31,41,55,.09), inset 0 1px 0 rgba(255,255,255,.66);
+      backdrop-filter:blur(12px) saturate(1.18);
+      -webkit-backdrop-filter:blur(12px) saturate(1.18);
     }
     .main-panel {
       padding:18px;
@@ -547,8 +547,8 @@
   const board = document.querySelector('.ambient-board');
   if (!board) return;
   const size = 10;
-  const stepMs = 400;
-  const resetPauseMs = 1200;
+  const stepMs = 200;
+  const resetPauseMs = 900;
   let timer = null;
 
   function isPrime(value) {
