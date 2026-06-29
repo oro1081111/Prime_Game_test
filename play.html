@@ -472,17 +472,13 @@
       }
     }
 
-    let anonSignInAttempted = false;
     setPersistence(auth, browserLocalPersistence).catch(e => {
       console.error('登入保存設定失敗', e);
     }).finally(() => {
+      // 讀取排名不需登入（scores 公開讀取）；匿名登入改為破關時才惰性觸發，減少匿名帳號
       onAuthStateChanged(auth, user => {
         currentUser = user || null;
         updateAuthUI(currentUser);
-        if (!user && !anonSignInAttempted) {
-          anonSignInAttempted = true;
-          signInAnonymously(auth).catch(e => console.warn('匿名登入失敗', e));
-        }
       });
     });
 
@@ -508,14 +504,12 @@
       });
     }
 
-    // 等待任何登入身分（含匿名）就緒，供 recordPlay 等寫入前使用
-    function ensureSignedIn(timeoutMs = 8000) {
+    // 確保有登入身分（含匿名）以便寫入計數器；若尚未登入則惰性進行匿名登入
+    function ensureSignedIn() {
       if (currentUser) return Promise.resolve(currentUser);
-      return new Promise(resolve => {
-        const t = setTimeout(() => { unsub(); resolve(currentUser); }, timeoutMs);
-        const unsub = onAuthStateChanged(auth, user => {
-          if (user) { clearTimeout(t); unsub(); resolve(user); }
-        });
+      return signInAnonymously(auth).then(cred => cred.user).catch(e => {
+        console.warn('匿名登入失敗', e);
+        return currentUser;
       });
     }
 
@@ -600,7 +594,9 @@
     async function recordPlay() {
       try {
         await ensureSignedIn();
-        await setDoc(doc(db, 'meta', 'stats'), { totalPlays: increment(1) }, { merge: true });
+        // 寫入 10 片分散計數器中的隨機一片，避免單一文件寫入熱點
+        const shard = String(Math.floor(Math.random() * 10));
+        await setDoc(doc(db, 'playCounters', shard), { count: increment(1) }, { merge: true });
       } catch (e) {
         console.warn('recordPlay failed', e);
       }
@@ -642,6 +638,10 @@
           prevUndos: prevUndo?.undos ?? null,
         };
       });
+
+      // 維護玩家名冊（供首頁以聚合查詢統計登入玩家數，避免整表掃描）
+      setDoc(doc(db, 'players', uid), { uid, name }, { merge: true })
+        .catch(e => console.warn('player upsert failed', e));
 
       const resultBase = {
         beatTime: saveResult.beatTime,

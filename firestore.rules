@@ -77,7 +77,8 @@ service cloud.firestore {
     }
 
     match /scores/{scoreId} {
-      allow read: if signedIn();
+      // 公開排行榜：開放讀取，瀏覽端無需登入（減少匿名帳號）
+      allow read: if true;
 
       allow create, update: if isGoogleUser()
         && validScoreData()
@@ -90,19 +91,31 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    match /meta/{statId} {
+    // 玩家名冊：每位 Google 玩家一筆，供首頁以聚合查詢統計「登入玩家數」
+    match /players/{uid} {
       allow read: if true;
-      // 僅允許建立 meta/stats，且初值必須為 1（對應 increment(1) 首次寫入）
+      allow create, update: if isGoogleUser()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['uid', 'name'])
+        && request.resource.data.uid == uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 1
+        && request.resource.data.name.size() <= 10;
+      allow delete: if false;
+    }
+
+    // 分散計數器：遊玩次數拆成 10 片寫入，避免單一文件寫入熱點
+    match /playCounters/{shardId} {
+      allow read: if true;
       allow create: if signedIn()
-        && statId == 'stats'
-        && request.resource.data.keys().hasOnly(['totalPlays'])
-        && request.resource.data.totalPlays == 1;
-      // 僅允許將 totalPlays 嚴格 +1，杜絕任意竄改
+        && shardId in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+        && request.resource.data.keys().hasOnly(['count'])
+        && request.resource.data.count == 1;
+      // 僅允許嚴格 +1，杜絕任意竄改
       allow update: if signedIn()
-        && statId == 'stats'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalPlays'])
-        && request.resource.data.totalPlays is int
-        && request.resource.data.totalPlays == resource.data.totalPlays + 1;
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['count'])
+        && request.resource.data.count is int
+        && request.resource.data.count == resource.data.count + 1;
       allow delete: if false;
     }
 

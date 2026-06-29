@@ -873,11 +873,11 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signInAnonymously, signOut,
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut,
   onAuthStateChanged, setPersistence, browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import {
-  getFirestore, doc, getDoc, getDocs, collection
+  getFirestore, getDocs, collection, getCountFromServer
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -899,19 +899,16 @@ async function loadStats() {
   if (statsLoaded) return;
   statsLoaded = true;
   try {
-    // 以排行榜相同的資料來源（scores）為基準，確保首頁數字至少與排行榜相符。
-    const [scoresSnap, statsSnap] = await Promise.all([
-      getDocs(collection(db, 'scores')),
-      getDoc(doc(db, 'meta', 'stats')).catch(() => null)
+    // 低成本聚合：玩家數用 count 查詢（約 1 次讀取）；遊玩次數加總 10 片分散計數器（≤10 次讀取）。
+    // 不論玩家成長到多少，這裡的讀取量都是固定的。
+    const [playerCountSnap, countersSnap] = await Promise.all([
+      getCountFromServer(collection(db, 'players')),
+      getDocs(collection(db, 'playCounters'))
     ]);
-    const uids = new Set();
-    scoresSnap.forEach(d => {
-      const row = d.data();
-      if (row.uid) uids.add(row.uid);
-    });
-    const players = uids.size;
+    const players = playerCountSnap.data().count || 0;
+    let counter = 0;
+    countersSnap.forEach(d => { counter += (d.data().count || 0); });
     // 總遊玩局數：固定基數 50 + 累計計數器（含未登入）。
-    const counter = statsSnap && statsSnap.exists() ? (statsSnap.data().totalPlays || 0) : 0;
     const totalPlays = 50 + counter;
     const el = document.getElementById('statPlayers');
     const el2 = document.getElementById('statPlays');
@@ -924,6 +921,8 @@ async function loadStats() {
     console.warn('載入統計失敗', e);
   }
 }
+// 統計資料皆為公開讀取，無需登入即可載入
+loadStats();
 let currentUser = null;
 let resolveAuthReady;
 const authReady = new Promise(resolve => { resolveAuthReady = resolve; });
@@ -980,23 +979,14 @@ function updateAuthUI(user) {
   }
 }
 
-let anonSignInAttempted = false;
 setPersistence(auth, browserLocalPersistence).catch(e => {
   console.error('登入保存設定失敗', e);
 }).finally(() => {
+  // 首頁僅在使用者主動登入時建立帳號；不再自動匿名登入（減少匿名帳號累積）
   onAuthStateChanged(auth, user => {
     currentUser = user || null;
     updateAuthUI(currentUser);
     markAuthReady();
-    if (!user) {
-      if (!anonSignInAttempted) {
-        anonSignInAttempted = true;
-        signInAnonymously(auth).catch(e => console.warn('匿名登入失敗', e));
-      }
-      return;
-    }
-    // 已有登入身分（匿名或 Google）即可讀取 scores 載入統計。
-    loadStats();
   });
 });
 

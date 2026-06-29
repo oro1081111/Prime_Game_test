@@ -107,11 +107,9 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 import {
-  getAuth, signInAnonymously, onAuthStateChanged,
-  setPersistence, browserLocalPersistence
-} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+  getFirestore, collection, getDocs, query, where, orderBy, limit, startAfter
+} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAbd97s2tRaR_VJXrBXGlibhMlSTujSl5w",
@@ -124,7 +122,6 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const auth = getAuth(app);
 
 const $ = (s)=>document.querySelector(s);
 const $$ = (s)=>Array.from(document.querySelectorAll(s));
@@ -141,8 +138,8 @@ const initState = {
 
 let state = {
   ...initState,
-  rows: [],
-  page: 0,
+  lastDoc: null,
+  loadedCount: 0,
   loading: false,
   done: false
 };
@@ -162,15 +159,6 @@ function paramsToPlay(mode,size){
   if (mode==='hard') return `play.html?mode=hard&size=${size}&start=105`;
   return `play.html?mode=hidden&size=${size}&start=1&hidden=1`;
 }
-function timestampMs(value){
-  if (!value) return 0;
-  if (typeof value.toMillis === 'function') return value.toMillis();
-  if (typeof value.toDate === 'function') return value.toDate().getTime();
-  return Number(value) || 0;
-}
-function scoreTime(row){
-  return timestampMs(row.updatedAt || row.createdAt);
-}
 function escapeHtml(value){
   return String(value ?? '').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
 }
@@ -183,20 +171,22 @@ function shortPlayerId(row){
   }
   return hash.toString(16).slice(-4).toUpperCase().padStart(4, '0');
 }
-function compareRows(a,b){
-  if (state.lb === 'time') {
-    return (a.ms - b.ms) || ((a.undos || 0) - (b.undos || 0)) || (scoreTime(a) - scoreTime(b));
-  }
-  return ((a.undos || 0) - (b.undos || 0)) || (a.ms - b.ms) || (scoreTime(a) - scoreTime(b));
-}
-
-async function fetchLeaderboardRows(){
-  const snap = await getDocs(collection(db, 'scores'));
-  return snap.docs
-    .map(d => ({ id: d.id, ...d.data() }))
-    .filter(row => row.mode === state.mode && Number(row.size) === Number(state.size) && row.kind === state.lb)
-    .sort(compareRows)
-    .map((row, i) => ({ ...row, rank: i + 1 }));
+// 以伺服器端查詢 + 排序 + 游標分頁，每頁只讀 pageSize 筆（不再整表下載）。
+// time 榜：依 ms→undos 排序（索引 mode,size,kind,ms,undos）
+// undo 榜：依 undos→ms 排序（索引 mode,size,kind,undos,ms）
+function buildPageQuery(){
+  const filters = [
+    where('mode', '==', state.mode),
+    where('size', '==', Number(state.size)),
+    where('kind', '==', state.lb)
+  ];
+  const order = state.lb === 'time'
+    ? [orderBy('ms', 'asc'), orderBy('undos', 'asc')]
+    : [orderBy('undos', 'asc'), orderBy('ms', 'asc')];
+  const parts = [...filters, ...order];
+  if (state.lastDoc) parts.push(startAfter(state.lastDoc));
+  parts.push(limit(state.pageSize));
+  return query(collection(db, 'scores'), ...parts);
 }
 
 async function loadNextPage(){
@@ -205,22 +195,21 @@ async function loadNextPage(){
   $('#btnMore').disabled = true;
 
   try{
-    if (state.page === 0 && state.rows.length === 0) {
-      state.rows = await fetchLeaderboardRows();
-    }
+    const snap = await getDocs(buildPageQuery());
 
-    const start = state.page * state.pageSize;
-    const pageRows = state.rows.slice(start, start + state.pageSize);
-
-    if (pageRows.length === 0) {
+    if (snap.empty) {
       state.done = true;
       if ($('#cards').children.length === 0) {
         $('#cards').innerHTML = `<div class="empty">目前沒有排行榜資料</div>`;
       }
     } else {
-      renderCards(pageRows);
-      state.page++;
-      if (state.page * state.pageSize >= state.rows.length) state.done = true;
+      const rows = snap.docs.map((d, i) => ({
+        id: d.id, ...d.data(), rank: state.loadedCount + i + 1
+      }));
+      renderCards(rows);
+      state.lastDoc = snap.docs[snap.docs.length - 1];
+      state.loadedCount += snap.docs.length;
+      if (snap.docs.length < state.pageSize) state.done = true;
     }
   }catch(err){
     console.error('讀取排行榜失敗：', err);
@@ -264,8 +253,8 @@ function renderCards(list){
 }
 function resetAndLoad(){
   $('#cards').innerHTML = '';
-  state.rows = [];
-  state.page = 0;
+  state.lastDoc = null;
+  state.loadedCount = 0;
   state.done = false;
   $('#btnMore').disabled = false;
   $('#btnMore').textContent = '載入更多';
@@ -299,25 +288,11 @@ $('#btnMore').addEventListener('click', loadNextPage);
 $('#btnHome').addEventListener('click', ()=> location.href='index.html');
 $('#btnPlay').addEventListener('click', ()=> location.href = paramsToPlay(state.mode,state.size));
 
-async function boot(){
-  try{
-    await setPersistence(auth, browserLocalPersistence);
-    const initialUser = await new Promise(resolve => {
-      const unsub = onAuthStateChanged(auth, user => {
-        unsub();
-        resolve(user);
-      });
-    });
-    if (!initialUser) await signInAnonymously(auth);
-  }catch(e){
-    console.warn('匿名登入失敗，將以未登入狀態讀取（需 Firestore 規則允許 read）', e);
-  }
-  setActive('#modeTabs','mode',state.mode);
-  setActive('#sizeTabs','size',state.size);
-  setActive('#lbTabs','lb',state.lb);
-  resetAndLoad();
-}
-boot();
+// scores 為公開讀取，瀏覽排行榜不需登入
+setActive('#modeTabs','mode',state.mode);
+setActive('#sizeTabs','size',state.size);
+setActive('#lbTabs','lb',state.lb);
+resetAndLoad();
 </script>
 </body>
 </html>
