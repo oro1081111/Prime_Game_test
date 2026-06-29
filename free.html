@@ -361,11 +361,15 @@
       border-radius: 9px;
     }
 
-    /* 數字輸入框收窄 */
+    /* 數字輸入框收窄：高度/寬度上限 20（兩位數）；起始可到 999（三位數） */
     #rows,
-    #cols,
+    #cols {
+      width: 42px;
+      text-align: center;
+    }
+
     #startNum {
-      width: 56px;
+      width: 52px;
       text-align: center;
     }
 
@@ -373,13 +377,6 @@
       font-size: 15px;
       padding: 7px 12px;
       border-radius: 9px;
-    }
-
-    /* 返回首頁：次要按鈕樣式（淡化） */
-    #backHome.ghost {
-      background: #fff;
-      border: 1px solid #e7cf86;
-      color: #7a4d00;
     }
 
     /* HUD 膠囊大小回到正常 */
@@ -512,9 +509,9 @@
       <div class="controls-row">
         <button id="gen">開始新遊戲</button>
         <button id="pause">暫停</button>
-        <button id="showAnswer">顯示答案</button>
+        <button id="backHome">返回首頁</button>
         <button id="hintBtn">提示次數：0</button>
-        <button id="backHome" class="ghost">返回首頁</button>
+        <button id="showAnswer">顯示答案</button>
       </div>
     </div>
 
