@@ -905,18 +905,14 @@ async function loadStats() {
       getDoc(doc(db, 'meta', 'stats')).catch(() => null)
     ]);
     const uids = new Set();
-    const games = new Set();
     scoresSnap.forEach(d => {
       const row = d.data();
-      if (row.uid) {
-        uids.add(row.uid);
-        games.add(`${row.uid}__${row.mode}__${row.size}`);
-      }
+      if (row.uid) uids.add(row.uid);
     });
     const players = uids.size;
-    // 總遊玩局數：取「排行榜既有完成數」與「累計計數器（含未登入）」較大者。
+    // 總遊玩局數：固定基數 50 + 累計計數器（含未登入）。
     const counter = statsSnap && statsSnap.exists() ? (statsSnap.data().totalPlays || 0) : 0;
-    const totalPlays = Math.max(games.size, counter);
+    const totalPlays = 50 + counter;
     const el = document.getElementById('statPlayers');
     const el2 = document.getElementById('statPlays');
     const strip = document.getElementById('statsStrip');
