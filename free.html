@@ -533,12 +533,7 @@
     setPersistence(auth, browserLocalPersistence).catch(e => {
       console.error('登入保存設定失敗', e);
     }).finally(() => {
-      onAuthStateChanged(auth, user => {
-        if (!user || user.isAnonymous) {
-          alert('請先使用 Google 登入才能遊玩。');
-          location.href = 'index.html';
-        }
-      });
+      onAuthStateChanged(auth, () => {});
     });
   </script>
 

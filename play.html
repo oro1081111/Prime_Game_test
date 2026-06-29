@@ -21,7 +21,7 @@
       </div>
       <div class="controls-row auth-row">
         <span id="authStatus">連線中…</span>
-        <button id="btnLinkGoogle" class="btn-link" style="display:none">Google 登入</button>
+        <button id="btnLinkGoogle" class="btn-link" style="display:none">登入</button>
       </div>
     </div>
 
@@ -249,11 +249,12 @@
         const pauseBtn = document.getElementById('pause');
         if (pauseBtn) pauseBtn.disabled = true;
         const time = fmt(totalMsRounded);
+        const loggedIn = typeof window.isGoogleUser === 'function' && window.isGoogleUser();
         showOverlay(`
       <h2>成功完成！</h2>
       <p>模式：<b>${modeLabel}${SIZE}階</b>　玩家：<b>${PLAYER_HTML}</b></p>
       <p>用時：<b>${time}</b>　取消：<b>${undoCount}</b> 次</p>
-      <div id="resultArea" class="result-area"><p class="result-pending">計算排名中…</p></div>
+      <div id="resultArea" class="result-area"><p class="result-pending">${loggedIn ? '計算排名中…' : '未登入，成績不會記錄至排行榜'}</p></div>
       <div class="row">
         <button id="btnAgain">再挑戰一次</button>
         <button id="btnHome">返回首頁</button>
@@ -263,7 +264,7 @@
         document.getElementById('btnAgain').onclick = () => { hideOverlay(); generate(); };
         document.getElementById('btnHome').onclick = () => { location.href = 'index.html'; };
         document.getElementById('btnLB').onclick = () => { location.href = `leaderboard.html?mode=${MODE}&size=${SIZE}`; };
-        if (window.saveScoreAndRank) {
+        if (loggedIn && window.saveScoreAndRank) {
           window.saveScoreAndRank({
             mode: MODE, size: SIZE, name: PLAYER,
             ms: totalMsRounded, undos: undoCount,
@@ -459,10 +460,6 @@
       onAuthStateChanged(auth, user => {
         currentUser = user || null;
         updateAuthUI(currentUser);
-        if (!currentUser || currentUser.isAnonymous) {
-          alert('請先使用 Google 登入才能遊玩。');
-          location.href = 'index.html';
-        }
       });
     });
 
@@ -634,6 +631,7 @@
     }
 
     window.saveScoreAndRank = saveScoreAndRank;
+    window.isGoogleUser = () => !!(currentUser && !currentUser.isAnonymous);
   </script>
 </body>
 
