@@ -533,7 +533,11 @@
     setPersistence(auth, browserLocalPersistence).catch(e => {
       console.error('登入保存設定失敗', e);
     }).finally(() => {
-      onAuthStateChanged(auth, () => {});
+      onAuthStateChanged(auth, user => {
+        if (!user || user.isAnonymous) {
+          location.href = 'index.html';
+        }
+      });
     });
   </script>
 

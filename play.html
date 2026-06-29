@@ -254,7 +254,7 @@
       <h2>成功完成！</h2>
       <p>模式：<b>${modeLabel}${SIZE}階</b>　玩家：<b>${PLAYER_HTML}</b></p>
       <p>用時：<b>${time}</b>　取消：<b>${undoCount}</b> 次</p>
-      <div id="resultArea" class="result-area"><p class="result-pending">${loggedIn ? '計算排名中…' : '未登入，成績不會記錄至排行榜'}</p></div>
+      <div id="resultArea" class="result-area"><p class="result-pending">計算排名中…</p></div>
       <div class="row">
         <button id="btnAgain">再挑戰一次</button>
         <button id="btnHome">返回首頁</button>
@@ -264,6 +264,7 @@
         document.getElementById('btnAgain').onclick = () => { hideOverlay(); generate(); };
         document.getElementById('btnHome').onclick = () => { location.href = 'index.html'; };
         document.getElementById('btnLB').onclick = () => { location.href = `leaderboard.html?mode=${MODE}&size=${SIZE}`; };
+        if (window.recordPlay) window.recordPlay();
         if (loggedIn && window.saveScoreAndRank) {
           window.saveScoreAndRank({
             mode: MODE, size: SIZE, name: PLAYER,
@@ -273,17 +274,19 @@
               if (!area) return;
               const rankLabel = rankPending ? '計算中...' : (rankFailed ? '暫時無法計算' : (rank !== null ? `第 ${rank} 名` : '暫時無法計算'));
               let html = `<p>本次速度排名：<b>${rankLabel}</b></p>`;
-              if (beatTime) {
-                const prev = prevTimeMs != null ? `原 ${fmt(prevTimeMs)}` : '首次紀錄';
-                html += `<p class="record-new">✓ 最佳時間！（${prev}）</p>`;
-              } else if (prevTimeMs != null) {
-                html += `<p class="record-old">個人最佳時間：${fmt(prevTimeMs)}</p>`;
-              }
-              if (beatUndo) {
-                const prev = prevUndos != null ? `原 ${prevUndos} 次` : '首次紀錄';
-                html += `<p class="record-new">✓ 最少取消！（${prev}）</p>`;
-              } else if (prevUndos != null) {
-                html += `<p class="record-old">個人最少取消：${prevUndos} 次</p>`;
+              if (!rankPending) {
+                if (beatTime) {
+                  const prev = prevTimeMs != null ? `原 ${fmt(prevTimeMs)}` : '首次紀錄';
+                  html += `<p class="record-new">✓ 最佳時間！（${prev}）</p>`;
+                } else if (prevTimeMs != null) {
+                  html += `<p class="record-old">個人最佳時間：${fmt(prevTimeMs)}</p>`;
+                }
+                if (beatUndo) {
+                  const prev = prevUndos != null ? `原 ${prevUndos} 次` : '首次紀錄';
+                  html += `<p class="record-new">✓ 最少取消！（${prev}）</p>`;
+                } else if (prevUndos != null) {
+                  html += `<p class="record-old">個人最少取消：${prevUndos} 次</p>`;
+                }
               }
               area.innerHTML = html;
             }
@@ -292,6 +295,21 @@
             if (area) area.innerHTML = '<p class="result-pending">—（排名計算失敗）</p>';
             console.error(err);
           });
+        } else if (window.calculateRank) {
+          window.calculateRank({ mode: MODE, size: SIZE, ms: totalMsRounded, undos: undoCount })
+            .then(rank => {
+              const area = document.getElementById('resultArea');
+              if (!area) return;
+              const rankLabel = rank !== null ? `第 ${rank} 名` : '暫時無法計算';
+              area.innerHTML = `<p>本次速度排名：<b>${rankLabel}</b></p><p class="result-pending">未登入，成績不會記錄至排行榜</p>`;
+            })
+            .catch(() => {
+              const area = document.getElementById('resultArea');
+              if (area) area.innerHTML = '<p class="result-pending">未登入，成績不會記錄至排行榜</p>';
+            });
+        } else {
+          const area = document.getElementById('resultArea');
+          if (area) area.innerHTML = '<p class="result-pending">未登入，成績不會記錄至排行榜</p>';
         }
       }
 
@@ -417,11 +435,11 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
     import {
-      getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged,
+      getAuth, GoogleAuthProvider, signInWithPopup, signInAnonymously, onAuthStateChanged,
       setPersistence, browserLocalPersistence
     } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
     import {
-      getFirestore, doc, serverTimestamp,
+      getFirestore, doc, serverTimestamp, setDoc, increment,
       collection, getDocs, query, where, getCountFromServer, runTransaction
     } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
@@ -454,12 +472,17 @@
       }
     }
 
+    let anonSignInAttempted = false;
     setPersistence(auth, browserLocalPersistence).catch(e => {
       console.error('登入保存設定失敗', e);
     }).finally(() => {
       onAuthStateChanged(auth, user => {
         currentUser = user || null;
         updateAuthUI(currentUser);
+        if (!user && !anonSignInAttempted) {
+          anonSignInAttempted = true;
+          signInAnonymously(auth).catch(e => console.warn('匿名登入失敗', e));
+        }
       });
     });
 
@@ -563,6 +586,14 @@
       }
     }
 
+    async function recordPlay() {
+      try {
+        await setDoc(doc(db, 'meta', 'stats'), { totalPlays: increment(1) }, { merge: true });
+      } catch (e) {
+        console.warn('recordPlay failed', e);
+      }
+    }
+
     async function saveScoreAndRank({ mode, size, name, ms, undos, onResult }) {
       validateScoreInput({ mode, size, name, ms, undos });
       const user = await ensureAuth();
@@ -595,6 +626,8 @@
           prevUndos: prevUndo?.undos ?? null,
         };
       });
+
+      setDoc(doc(db, 'players', uid), { name, uid }, { merge: true }).catch(e => console.warn('setDoc players failed', e));
 
       const resultBase = {
         beatTime: saveResult.beatTime,
@@ -632,6 +665,8 @@
 
     window.saveScoreAndRank = saveScoreAndRank;
     window.isGoogleUser = () => !!(currentUser && !currentUser.isAnonymous);
+    window.calculateRank = calculateTimeRank;
+    window.recordPlay = recordPlay;
   </script>
 </body>
 
