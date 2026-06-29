@@ -501,9 +501,20 @@
     function ensureAuth() {
       if (currentUser && !currentUser.isAnonymous) return Promise.resolve(currentUser);
       return new Promise((resolve, reject) => {
-        const t = setTimeout(() => reject(new Error('auth timeout')), 10000);
+        const t = setTimeout(() => { unsub(); reject(new Error('auth timeout')); }, 10000);
         const unsub = onAuthStateChanged(auth, user => {
           if (user && !user.isAnonymous) { clearTimeout(t); unsub(); resolve(user); }
+        });
+      });
+    }
+
+    // 等待任何登入身分（含匿名）就緒，供 recordPlay 等寫入前使用
+    function ensureSignedIn(timeoutMs = 8000) {
+      if (currentUser) return Promise.resolve(currentUser);
+      return new Promise(resolve => {
+        const t = setTimeout(() => { unsub(); resolve(currentUser); }, timeoutMs);
+        const unsub = onAuthStateChanged(auth, user => {
+          if (user) { clearTimeout(t); unsub(); resolve(user); }
         });
       });
     }
@@ -588,6 +599,7 @@
 
     async function recordPlay() {
       try {
+        await ensureSignedIn();
         await setDoc(doc(db, 'meta', 'stats'), { totalPlays: increment(1) }, { merge: true });
       } catch (e) {
         console.warn('recordPlay failed', e);
@@ -595,6 +607,10 @@
     }
 
     async function saveScoreAndRank({ mode, size, name, ms, undos, onResult }) {
+      // 將數值夾在合法範圍內，避免極快完成（<1 秒）等邊界值導致存檔失敗
+      const maxUndos = Number(size) * Number(size) * 4;
+      ms = Math.min(3600000, Math.max(1000, Math.round(Number(ms))));
+      undos = Math.min(maxUndos, Math.max(0, Math.round(Number(undos))));
       validateScoreInput({ mode, size, name, ms, undos });
       const user = await ensureAuth();
       const uid = user.uid;

@@ -92,16 +92,17 @@ service cloud.firestore {
 
     match /meta/{statId} {
       allow read: if true;
-      allow create: if signedIn();
+      // 僅允許建立 meta/stats，且初值必須為 1（對應 increment(1) 首次寫入）
+      allow create: if signedIn()
+        && statId == 'stats'
+        && request.resource.data.keys().hasOnly(['totalPlays'])
+        && request.resource.data.totalPlays == 1;
+      // 僅允許將 totalPlays 嚴格 +1，杜絕任意竄改
       allow update: if signedIn()
         && statId == 'stats'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalPlays']);
-      allow delete: if false;
-    }
-
-    match /players/{uid} {
-      allow read: if true;
-      allow create, update: if isGoogleUser() && request.auth.uid == uid;
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalPlays'])
+        && request.resource.data.totalPlays is int
+        && request.resource.data.totalPlays == resource.data.totalPlays + 1;
       allow delete: if false;
     }
 

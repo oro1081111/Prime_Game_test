@@ -972,15 +972,42 @@
       }
       async function importPuzzle(file) {
         try {
+          if (file.size > 1024 * 1024) throw new Error('檔案過大');
           const text = await file.text();
           const data = JSON.parse(text);
           if (!data || !Array.isArray(data.gridOrder)) throw new Error('檔案格式錯誤');
-          const rLen = data.gridOrder.length;
-          const cLen = rLen ? data.gridOrder[0].length : 0;
-          if (!(rLen > 0 && cLen > 0)) throw new Error('棋盤資料不完整');
 
-          R = data.R || rLen; C = data.C || cLen;
-          startNum = data.startNum || 1;
+          const rLen = data.gridOrder.length;
+          if (!(rLen >= 2 && rLen <= 20)) throw new Error('棋盤高度需介於 2~20');
+          if (!data.gridOrder.every(row => Array.isArray(row) && row.length === data.gridOrder[0].length)) {
+            throw new Error('棋盤每列長度需一致');
+          }
+          const cLen = data.gridOrder[0].length;
+          if (!(cLen >= 2 && cLen <= 20)) throw new Error('棋盤寬度需介於 2~20');
+
+          // R/C 必須與實際資料維度相符，避免越界
+          const rImport = data.R || rLen;
+          const cImport = data.C || cLen;
+          if (rImport !== rLen || cImport !== cLen) throw new Error('棋盤尺寸與資料不符');
+
+          const startImport = data.startNum || 1;
+          if (!Number.isInteger(startImport) || startImport < 1 || startImport > 999) {
+            throw new Error('起始數字需為 1~999 的整數');
+          }
+
+          // 驗證 gridOrder 為 startNum..startNum+R*C-1 的一個排列
+          const expected = new Set();
+          for (let i = 0; i < rLen * cLen; i++) expected.add(startImport + i);
+          for (const row of data.gridOrder) {
+            for (const val of row) {
+              if (!Number.isInteger(val) || !expected.delete(val)) {
+                throw new Error('棋盤數字資料不合法');
+              }
+            }
+          }
+
+          R = rImport; C = cImport;
+          startNum = startImport;
           hiddenMode = !!data.hiddenMode;
           gridOrder = data.gridOrder;
 

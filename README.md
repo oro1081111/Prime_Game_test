@@ -36,7 +36,7 @@
 - 提供兩種排行榜：
   - **時間榜**：依完成時間（毫秒）排序，同時間者比較取消次數。
   - **取消榜**：依取消次數排序，同次數者比較完成時間。
-- **Google 登入**：需使用 Google 帳號登入才能遊玩並提交成績（排行榜瀏覽可匿名）。
+- **登入機制**：一般模式（基本／困難／隱藏）**無需登入即可遊玩**，但成績不會記錄；使用 **Google 帳號登入**後才會將成績提交至排行榜。**自由模式**需登入才能進入。排行榜瀏覽與首頁統計透過匿名登入即可讀取。
 
 ### 4. 遊戲介紹頁面 (About)
 - 提供完整的遊戲規則說明。
@@ -47,8 +47,8 @@
 
 - **前端核心**：Vanilla JavaScript (ES6+), HTML5, CSS3。
 - **資料存取**：使用 **Firebase 12.x**（透過 Google CDN 載入）進行即時資料庫讀寫。
-- **認證**：Firebase Authentication，支援 Google 登入（遊玩必要）與匿名登入（排行榜瀏覽）。
-- **資料庫安全規則**：Firestore Security Rules 確保只有 Google 登入的使用者能寫入成績。
+- **認證**：Firebase Authentication，支援 Google 登入（提交成績／進入自由模式）與匿名登入（瀏覽排行榜、讀取首頁統計）。
+- **資料庫安全規則**：Firestore Security Rules 確保只有 Google 登入的使用者能寫入個人成績，且僅能刷新自己的最佳紀錄；遊玩次數統計僅允許嚴格 +1 遞增。
 - **路徑演算法**：
   - 核心採用 **Backbite Algorithm**。
   - 系統首先生成一個蛇形路徑，依棋盤大小執行 `20 × R × C` 次隨機 `backbite` 拓撲變換，確保生成的漢米爾頓路徑具有高度隨機性且保證每局皆有解。
@@ -57,9 +57,9 @@
 
 ```
 Prime_Game_test/
-├── index.html          # 首頁（模式選擇、Google 登入）
+├── index.html          # 首頁（模式選擇、登入、遊玩統計）
 ├── play.html           # 遊戲頁面（基本 / 困難 / 隱藏模式）
-├── free.html           # 自由模式
+├── free.html           # 自由模式（需登入）
 ├── leaderboard.html    # 全球排行榜
 ├── about.html          # 遊戲介紹
 ├── assets/
@@ -67,8 +67,7 @@ Prime_Game_test/
 │   │   ├── base.css    # 全站基礎樣式
 │   │   └── play.css    # 遊戲頁面樣式
 │   └── js/
-│       ├── router.js   # 頁面路由與 URL 參數工具
-│       └── firebase.js # Firebase 初始化與分數邏輯（共用模組）
+│       └── router.js   # 頁面路由與 URL 參數工具
 ├── firebase.json       # Firebase 部署設定
 ├── firestore.indexes.json
 └── firestore.rules     # Firestore 安全規則
@@ -80,7 +79,7 @@ Prime_Game_test/
 
 1. 下載或 Clone 本專案。
 2. 直接雙擊 `index.html` 即可在瀏覽器中開始遊戲。
-3. 遊玩前需使用 **Google 帳號登入**，並設定排行榜顯示名稱（最多 10 字）。
+3. 一般模式無需登入即可遊玩；若要將成績登上排行榜或進入自由模式，請使用 **Google 帳號登入**，並設定排行榜顯示名稱（最多 10 字）。
 
 ---
 
