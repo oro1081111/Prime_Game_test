@@ -905,7 +905,8 @@ async function loadStats() {
       getCountFromServer(collection(db, 'players')),
       getDocs(collection(db, 'playCounters'))
     ]);
-    const players = playerCountSnap.data().count || 0;
+    // 登入玩家數：固定基數 8 + 實際名冊人數（與遊玩次數的 50 基數同樣作法）。
+    const players = 8 + (playerCountSnap.data().count || 0);
     let counter = 0;
     countersSnap.forEach(d => { counter += (d.data().count || 0); });
     // 總遊玩局數：固定基數 50 + 累計計數器（含未登入）。
