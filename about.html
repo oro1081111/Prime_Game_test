@@ -154,7 +154,7 @@
     <h1>遊戲介紹</h1>
     <div class="topbar">
       <button class="secondary" id="backHome">返回首頁</button>
-      <button id="goPlay">開始遊玩</button>
+      <button id="goPlay">前往排行榜</button>
     </div>
 
     <div class="about">
@@ -218,9 +218,37 @@
         </div>
       </div>
 
-      <!-- 四、數學介紹 -->
+      <!-- 四、登入與排行榜 -->
       <div class="card">
-        <h2>四、漢米爾頓路徑的數學</h2>
+        <h2>四、登入與排行榜</h2>
+
+        <h3>無需登入即可遊玩</h3>
+        <p>
+          所有遊戲模式均可<b>直接開始，無需登入</b>。
+          計時器與取消次數同樣正常運作，你可以盡情練習與挑戰。
+        </p>
+
+        <h3>登入後才能提交成績</h3>
+        <p>
+          若想將成績記錄至全球排行榜，需使用 <b>Google 帳號登入</b>。
+          登入後，每局完成時系統會自動比對你的歷史成績，只保留最佳紀錄。
+        </p>
+
+        <h3>排行榜說明</h3>
+        <ul>
+          <li><b>最短時間榜</b>：以完成時間為主要排名依據；相同時間者再比較取消次數，再比較達成時間。</li>
+          <li><b>最少取消榜</b>：以取消次數為主要依據；相同次數者再比較完成時間，再比較達成時間。</li>
+          <li>每位玩家在每個模式與尺寸組合中，各只保留一筆最佳時間與一筆最少取消紀錄。</li>
+        </ul>
+
+        <div class="note">
+          💡 排行榜可供<b>未登入的訪客</b>直接瀏覽，無需帳號即可查看所有玩家的成績。
+        </div>
+      </div>
+
+      <!-- 五、數學介紹 -->
+      <div class="card">
+        <h2>五、漢米爾頓路徑的數學</h2>
         <h3>什麼是漢米爾頓路徑？</h3>
         <p>
           在<b>圖論（Graph Theory）</b>中，一張圖由<b>頂點（vertex）</b>與連接頂點的<b>邊（edge）</b>組成。
@@ -261,37 +289,9 @@
         </div>
       </div>
 
-      <!-- 五、登入與排行榜 -->
-      <div class="card">
-        <h2>五、登入與排行榜</h2>
-
-        <h3>無需登入即可遊玩</h3>
-        <p>
-          所有遊戲模式均可<b>直接開始，無需登入</b>。
-          計時器與取消次數同樣正常運作，你可以盡情練習與挑戰。
-        </p>
-
-        <h3>登入後才能提交成績</h3>
-        <p>
-          若想將成績記錄至全球排行榜，需使用 <b>Google 帳號登入</b>。
-          登入後，每局完成時系統會自動比對你的歷史成績，只保留最佳紀錄。
-        </p>
-
-        <h3>排行榜說明</h3>
-        <ul>
-          <li><b>時間榜</b>：以完成時間為主要排名依據；相同時間者再比較取消次數，再比較達成時間。</li>
-          <li><b>取消榜</b>：以取消次數為主要依據；相同次數者再比較完成時間，再比較達成時間。</li>
-          <li>每位玩家在每個模式與尺寸組合中，各只保留一筆最佳時間與一筆最少取消紀錄。</li>
-        </ul>
-
-        <div class="note">
-          💡 排行榜可供<b>未登入的訪客</b>直接瀏覽，無需帳號即可查看所有玩家的成績。
-        </div>
-      </div>
-
       <div class="topbar" style="margin:18px 0;">
         <button class="secondary" id="backHome2">返回首頁</button>
-        <button id="goPlay2">開始遊玩</button>
+        <button id="goPlay2">前往排行榜</button>
       </div>
     </div>
 
@@ -321,11 +321,11 @@
       });
 
       const home = () => location.href = 'index.html';
-      const play = () => location.href = 'index.html#modes';
+      const leaderboard = () => location.href = 'leaderboard.html';
       document.getElementById('backHome').onclick = home;
       document.getElementById('backHome2').onclick = home;
-      document.getElementById('goPlay').onclick = home;
-      document.getElementById('goPlay2').onclick = home;
+      document.getElementById('goPlay').onclick = leaderboard;
+      document.getElementById('goPlay2').onclick = leaderboard;
     })();
   </script>
 </body>
