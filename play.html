@@ -627,8 +627,6 @@
         };
       });
 
-      setDoc(doc(db, 'players', uid), { name, uid }, { merge: true }).catch(e => console.warn('setDoc players failed', e));
-
       const resultBase = {
         beatTime: saveResult.beatTime,
         beatUndo: saveResult.beatUndo,

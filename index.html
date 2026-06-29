@@ -369,6 +369,12 @@
     .free-card .btn {
       width:100%;
     }
+    .free-hint {
+      margin:4px 0 0;
+      color:var(--teal);
+      font-size:11px;
+      font-weight:700;
+    }
     footer {
       text-align:center;
       color:var(--muted);
@@ -778,6 +784,7 @@
           <div class="mode-top">
             <div>
               <h3>自由模式 <span class="mode-note">自訂玩法</span></h3>
+              <p class="free-hint">🔒 需登入才能進入自由模式</p>
             </div>
             <span class="difficulty">自訂</span>
           </div>
@@ -829,9 +836,27 @@
   });
 
   freeBtns.forEach(btn => {
-    btn.onclick = ()=>{
+    btn.onclick = async ()=>{
       ensureName();
-      location.href = 'free.html';
+      const auth = window.PrimeAuth;
+      if (auth) { try { await auth.ready; } catch(_) {} }
+      if (auth && auth.isGoogleSignedIn()) {
+        location.href = 'free.html';
+        return;
+      }
+      // 未登入：自由模式需登入，引導使用者登入後再進入
+      if (auth && auth.signInWithGoogle) {
+        try {
+          await auth.signInWithGoogle();
+          location.href = 'free.html';
+        } catch (e) {
+          if (e?.code !== 'auth/popup-closed-by-user') {
+            alert('自由模式需登入才能進入，請先登入');
+          }
+        }
+      } else {
+        alert('自由模式需登入才能進入，請先登入');
+      }
     };
   });
 
@@ -848,11 +873,11 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut,
+  getAuth, GoogleAuthProvider, signInWithPopup, signInAnonymously, signOut,
   onAuthStateChanged, setPersistence, browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import {
-  getFirestore, doc, getDoc, collection, getCountFromServer
+  getFirestore, doc, getDoc, getDocs, collection
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -869,14 +894,29 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const gp = new GoogleAuthProvider();
 
+let statsLoaded = false;
 async function loadStats() {
+  if (statsLoaded) return;
+  statsLoaded = true;
   try {
-    const [statsSnap, playerCount] = await Promise.all([
-      getDoc(doc(db, 'meta', 'stats')),
-      getCountFromServer(collection(db, 'players'))
+    // 以排行榜相同的資料來源（scores）為基準，確保首頁數字至少與排行榜相符。
+    const [scoresSnap, statsSnap] = await Promise.all([
+      getDocs(collection(db, 'scores')),
+      getDoc(doc(db, 'meta', 'stats')).catch(() => null)
     ]);
-    const totalPlays = statsSnap.exists() ? (statsSnap.data().totalPlays || 0) : 0;
-    const players = playerCount.data().count || 0;
+    const uids = new Set();
+    const games = new Set();
+    scoresSnap.forEach(d => {
+      const row = d.data();
+      if (row.uid) {
+        uids.add(row.uid);
+        games.add(`${row.uid}__${row.mode}__${row.size}`);
+      }
+    });
+    const players = uids.size;
+    // 總遊玩局數：取「排行榜既有完成數」與「累計計數器（含未登入）」較大者。
+    const counter = statsSnap && statsSnap.exists() ? (statsSnap.data().totalPlays || 0) : 0;
+    const totalPlays = Math.max(games.size, counter);
     const el = document.getElementById('statPlayers');
     const el2 = document.getElementById('statPlays');
     const strip = document.getElementById('statsStrip');
@@ -884,10 +924,10 @@ async function loadStats() {
     if (el2) el2.textContent = totalPlays.toLocaleString();
     if (strip) strip.style.display = '';
   } catch (e) {
+    statsLoaded = false;
     console.warn('載入統計失敗', e);
   }
 }
-loadStats();
 let currentUser = null;
 let resolveAuthReady;
 const authReady = new Promise(resolve => { resolveAuthReady = resolve; });
@@ -944,6 +984,7 @@ function updateAuthUI(user) {
   }
 }
 
+let anonSignInAttempted = false;
 setPersistence(auth, browserLocalPersistence).catch(e => {
   console.error('登入保存設定失敗', e);
 }).finally(() => {
@@ -951,6 +992,15 @@ setPersistence(auth, browserLocalPersistence).catch(e => {
     currentUser = user || null;
     updateAuthUI(currentUser);
     markAuthReady();
+    if (!user) {
+      if (!anonSignInAttempted) {
+        anonSignInAttempted = true;
+        signInAnonymously(auth).catch(e => console.warn('匿名登入失敗', e));
+      }
+      return;
+    }
+    // 已有登入身分（匿名或 Google）即可讀取 scores 載入統計。
+    loadStats();
   });
 });
 
