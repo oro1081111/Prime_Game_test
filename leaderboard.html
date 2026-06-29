@@ -172,8 +172,8 @@ function shortPlayerId(row){
   return hash.toString(16).slice(-4).toUpperCase().padStart(4, '0');
 }
 // 以伺服器端查詢 + 排序 + 游標分頁，每頁只讀 pageSize 筆（不再整表下載）。
-// time 榜：依 ms→undos 排序（索引 mode,size,kind,ms,undos）
-// undo 榜：依 undos→ms 排序（索引 mode,size,kind,undos,ms）
+// time 榜：依 ms→undos→達成時間 排序（索引 mode,size,kind,ms,undos,updatedAt）
+// undo 榜：依 undos→ms→達成時間 排序（索引 mode,size,kind,undos,ms,updatedAt）
 function buildPageQuery(){
   const filters = [
     where('mode', '==', state.mode),
@@ -181,8 +181,8 @@ function buildPageQuery(){
     where('kind', '==', state.lb)
   ];
   const order = state.lb === 'time'
-    ? [orderBy('ms', 'asc'), orderBy('undos', 'asc')]
-    : [orderBy('undos', 'asc'), orderBy('ms', 'asc')];
+    ? [orderBy('ms', 'asc'), orderBy('undos', 'asc'), orderBy('updatedAt', 'asc')]
+    : [orderBy('undos', 'asc'), orderBy('ms', 'asc'), orderBy('updatedAt', 'asc')];
   const parts = [...filters, ...order];
   if (state.lastDoc) parts.push(startAfter(state.lastDoc));
   parts.push(limit(state.pageSize));
