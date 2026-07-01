@@ -777,7 +777,7 @@
         cdTimer = setInterval(() => {
           n--; if (n > 0) { cdNum.textContent = String(n); } else {
             clearInterval(cdTimer); cdTimer = null; hideOverlay(); inputLocked = false; gameState = 'running'; resetTimer(); startTimer();
-            hintBtn.disabled = false; showBtn.disabled = false;
+            pauseBtn.disabled = false; hintBtn.disabled = false; showBtn.disabled = false;
           }
         }, 1000);
       }
@@ -828,17 +828,19 @@
       function generate() {
         try {
           resetTimer(); inputLocked = true; gameState = 'idle';
-          hintBtn.disabled = true; showBtn.disabled = true;
+          pauseBtn.disabled = true; hintBtn.disabled = true; showBtn.disabled = true;
           hintCount = 0; hintBtn.textContent = '提示次數：0';
           if (hintActive) clearHintHighlights();
           if (answerTimer) { clearInterval(answerTimer); answerTimer = null; }
           if (cdTimer) { clearInterval(cdTimer); cdTimer = null; }
           showBtn.textContent = '顯示答案';
 
-          R = parseInt(rowsEl.value, 10); C = parseInt(colsEl.value, 10);
-          startNum = parseInt(startEl.value, 10) || 1;
+          // 將尺寸/起始值夾在合法範圍（高度寬度 2~20、起始 1~999），避免手動輸入造成異常
+          R = Math.min(20, Math.max(2, parseInt(rowsEl.value, 10) || 5));
+          C = Math.min(20, Math.max(2, parseInt(colsEl.value, 10) || 5));
+          startNum = Math.min(999, Math.max(1, parseInt(startEl.value, 10) || 1));
+          rowsEl.value = R; colsEl.value = C; startEl.value = startNum;
           hiddenMode = !!(hiddenModeEl && hiddenModeEl.checked);
-          if (!(R > 0 && C > 0)) throw new Error('Rows/Columns 必須 > 0');
 
           path = initSnake(R, C);
           if (Math.random() < 0.5) path.reverse();
