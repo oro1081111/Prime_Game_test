@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>質數遊戲 - 更新公告</title>
+  <link rel="stylesheet" href="assets/css/base.css">
+  <style>
+    .updates {
+      max-width: 760px;
+      margin: 0 auto;
+      text-align: left;
+    }
+
+    .update-card {
+      background: #fff;
+      border: 1px solid #e5dccb;
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin: 14px 0;
+      line-height: 1.8;
+      box-shadow: 0 6px 18px rgba(31, 41, 55, .06);
+    }
+
+    .update-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px dashed #e7dcc0;
+    }
+
+    .update-date {
+      font-size: 14px;
+      font-weight: 800;
+      color: #5a4700;
+      white-space: nowrap;
+    }
+
+    .update-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 900;
+      color: #fff;
+      background: #22a06b;
+      border-radius: 999px;
+      padding: 2px 9px;
+    }
+
+    .update-body {
+      color: #333;
+      white-space: pre-line;
+      /* 保留手動換行 */
+    }
+
+    .update-body a {
+      color: #4b2faf;
+      font-weight: 700;
+      word-break: break-all;
+    }
+
+    .update-sign {
+      margin-top: 12px;
+      color: #5a4700;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .topbar {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>更新公告</h1>
+    <div class="topbar">
+      <button class="secondary" id="backHome">返回首頁</button>
+      <button id="goAbout">遊戲介紹</button>
+    </div>
+
+    <div class="updates">
+      <!-- 最新的公告放最上面；新增公告時，複製一個 .update-card 貼到這裡最上方，並修改日期與內容即可 -->
+
+      <div class="update-card">
+        <div class="update-head">
+          <span class="update-tag">最新</span>
+          <span class="update-date">2026-07-01</span>
+        </div>
+        <div class="update-body">感謝 Emm#5B91 玩家
+發現計時器設置BUG
+並即時告知
+已經修復完成
+並修正少許排行榜資料</div>
+        <div class="update-sign">奧羅桌遊設計工作室</div>
+      </div>
+
+      <div class="update-card">
+        <div class="update-head">
+          <span class="update-date">2026-06-26</span>
+        </div>
+        <div class="update-body">感謝各位玩家的遊玩
+有發現任何BUG歡迎聯絡粉專回報
+IG：<a href="https://www.instagram.com/oro1081111/" target="_blank" rel="noopener">https://www.instagram.com/oro1081111/</a></div>
+        <div class="update-sign">奧羅桌遊設計工作室</div>
+      </div>
+
+    </div>
+
+    <footer>© 奧羅桌遊設計工作室 - Prime Game</footer>
+  </div>
+
+  <script>
+    document.getElementById('backHome').onclick = () => location.href = 'index.html';
+    document.getElementById('goAbout').onclick = () => location.href = 'about.html';
+  </script>
+</body>
+
+</html>

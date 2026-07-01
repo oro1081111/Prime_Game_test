@@ -428,12 +428,14 @@
         display:none;
       }
       .top-actions {
-        flex-wrap:nowrap;
+        flex-wrap:wrap;
+        justify-content:flex-end;
+        gap:6px;
       }
       .top-actions .btn {
         min-height:34px;
-        padding:8px 9px;
-        font-size:13px;
+        padding:8px 8px;
+        font-size:12px;
       }
       .eyebrow {
         font-size:12px;
@@ -690,6 +692,7 @@
       </div>
     </div>
     <div class="top-actions">
+      <button id="goUpdates" class="btn secondary">更新公告</button>
       <button id="goAbout" class="btn secondary">遊戲介紹</button>
       <button id="goLeaderboard" class="btn secondary">排行榜</button>
     </div>
@@ -804,6 +807,7 @@
   const saveBtn   = document.getElementById('saveName');
   const lbBtn     = document.getElementById('goLeaderboard');
   const aboutBtn  = document.getElementById('goAbout');
+  const updatesBtn= document.getElementById('goUpdates');
   const freeBtns  = [document.getElementById('goFree'), document.getElementById('goFreeCard')].filter(Boolean);
 
   const stored = (localStorage.getItem('playerName') || '').slice(0, 10);
@@ -862,6 +866,10 @@
 
   aboutBtn.onclick = ()=>{
     location.href = 'about.html';
+  };
+
+  updatesBtn.onclick = ()=>{
+    location.href = 'updates.html';
   };
 
   lbBtn.onclick = ()=>{
