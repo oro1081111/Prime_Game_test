@@ -5,26 +5,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>質數遊戲-急速模式(Beta)</title>
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/play.css">
   <style>
-    :root { --maxw: 520px }
-
-    * { box-sizing: border-box }
-
-    body {
-      margin: 0;
-      padding:
-        max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
-        max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-      font-family: system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
-      background: #f6efe1;
-      color: #222;
-      font-size: 16px;
-    }
-
-    .wrap { max-width: var(--maxw); margin: 0 auto; text-align: center }
-
-    h1 { font-size: clamp(20px, 5vw, 28px); margin: 8px 0 12px }
-
+    /* 急速模式專屬（base.css / play.css 未涵蓋的部分） */
     .beta {
       font-size: 13px;
       font-weight: 800;
@@ -35,53 +19,18 @@
       vertical-align: middle;
     }
 
-    .hud {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-      justify-content: center;
-      margin-bottom: 10px;
+    .pill.time {
+      background: #e6f7ff;
+      border-color: #8bd3f7;
     }
 
-    .pill {
-      background: #fff3c4;
-      border: 1px solid #e7cf86;
-      border-radius: 999px;
-      padding: 6px 12px;
-      font-size: 15px;
+    .pill.time.low {
+      background: #ffe3e3;
+      border-color: #ffb3b3;
+      color: #b00020;
     }
 
-    .pill.time { background: #e6f7ff; border-color: #8bd3f7 }
-    .pill.time.low { background: #ffe3e3; border-color: #ffb3b3; color: #b00020 }
-
-    .board-wrap { position: relative; width: min(100%, var(--maxw)); margin: 10px auto }
-
-    .board { display: grid; grid-template-columns: repeat(5, 1fr); gap: clamp(3px, .8vw, 5px) }
-
-    .cell {
-      --cell-bg: rgba(255, 255, 255, .82);
-      --cell-border: #8aa5a0;
-      --cell-color: #172033;
-      position: relative;
-      border: 1px solid var(--cell-border);
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--cell-bg);
-      color: var(--cell-color);
-      user-select: none;
-      cursor: pointer;
-      aspect-ratio: 1/1;
-      font-size: clamp(13px, 4.5vw, 22px);
-      font-weight: 800;
-      box-shadow: 0 1px 0 rgba(255, 255, 255, .64) inset;
-      transition: background .12s, border-color .12s, transform .12s, color .12s;
-    }
-
-    .cell.fixed { cursor: default }
-
+    /* 阻擋格（play.css 沒有，沿用自由模式的深灰樣式） */
     .cell.blocked {
       --cell-bg: #4b5563;
       --cell-border: #374151;
@@ -90,41 +39,7 @@
       box-shadow: none;
     }
 
-    .cell.one {
-      --cell-bg: #fff0b3;
-      --cell-border: #e6b800;
-      --cell-color: #7a4d00;
-    }
-
-    .cell.prime {
-      --cell-bg: #f0e8ff;
-      --cell-border: #a78bfa;
-      --cell-color: #4b2faf;
-    }
-
-    .cell.next-prime-highlight {
-      --cell-bg: #e6ffe9;
-      --cell-border: #22c55e;
-      --cell-color: #14532d;
-      transform: scale(1.03);
-      box-shadow: 0 0 0 2px rgba(20, 83, 45, .42) inset;
-    }
-
-    .cell.filled {
-      --cell-bg: #e8f7ff;
-      --cell-border: #8bd3f7;
-      --cell-color: #075985;
-    }
-
-    .cell.wrong { animation: shake .22s }
-
-    @keyframes shake {
-      0% { transform: translateX(0) }
-      50% { transform: translateX(-2px) }
-      100% { transform: translateX(0) }
-    }
-
-    /* 開場 3 秒的淡淡背景數字倒數（不擋住盤面、不吃點擊） */
+    /* 開場 3 秒的淡淡背景數字倒數（不擋盤面、不吃點擊） */
     .watermark {
       position: absolute;
       inset: 0;
@@ -132,76 +47,26 @@
       align-items: center;
       justify-content: center;
       pointer-events: none;
-      z-index: 3;
     }
 
-    .watermark.show { display: flex }
+    .watermark.show { display: flex; }
 
     .watermark span {
-      font-size: min(60vw, 320px);
+      font-size: min(60vw, 300px);
       font-weight: 900;
       line-height: 1;
       color: rgba(31, 41, 55, .16);
       text-shadow: 0 2px 12px rgba(255, 255, 255, .5);
     }
 
-    .overlay {
-      position: absolute;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0, 0, 0, .55);
-      backdrop-filter: blur(8px);
-      border-radius: 6px;
-      z-index: 5;
+    .modal .done-count {
+      font-size: 30px;
+      font-weight: 900;
+      color: #172033;
+      margin: 6px 0;
     }
 
-    .overlay.show { display: flex }
-
-    .modal {
-      box-sizing: border-box;
-      background: #fff;
-      border-radius: 14px;
-      box-shadow: 0 12px 28px rgba(0, 0, 0, .22);
-      padding: 22px 24px;
-      width: min(400px, 90%);
-      text-align: center;
-      line-height: 1.6;
-    }
-
-    .modal h2 { font-size: 1.5em; margin: 0 0 .5rem }
-    .modal p { margin: 8px 0; color: #333; font-size: 16px }
-    .modal .big { font-size: 30px; font-weight: 900; color: #172033 }
-    .modal .stat b { color: #4b2faf }
-
-    .modal .row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 16px;
-    }
-
-    @media (max-width:420px) { .modal .row { grid-template-columns: 1fr } }
-
-    button {
-      padding: 10px 14px;
-      border-radius: 12px;
-      font-size: 15px;
-      font-weight: 700;
-      background: #ffbf48;
-      border: none;
-      cursor: pointer;
-      box-shadow: 0 2px 0 rgba(0, 0, 0, .08);
-    }
-
-    button.secondary { background: #fff; border: 1px solid #e7cf86 }
-
-    .controls-row { display: flex; gap: 10px; justify-content: center; margin: 12px 0 }
-
-    #status { margin-top: 8px; color: #5a4700; font-size: 14px; min-height: 18px }
-
-    footer { text-align: center; color: #667085; font-size: 12px; margin-top: 6px }
+    .modal .stat b { color: #4b2faf; }
   </style>
 </head>
 
@@ -223,8 +88,10 @@
       </div>
     </div>
 
-    <div class="controls-row">
-      <button id="backHome" class="secondary">返回首頁</button>
+    <div class="controls">
+      <div class="controls-row">
+        <button id="backHome" class="secondary">返回首頁</button>
+      </div>
     </div>
 
     <p id="status"></p>
@@ -395,7 +262,11 @@
       });
 
       // ---- Overlay ----
-      function showOverlay(html) { overlayContent.innerHTML = html; overlayEl.classList.add('show'); }
+      function showOverlay(html, extraClass = '') {
+        overlayContent.className = 'modal' + (extraClass ? ' ' + extraClass : '');
+        overlayContent.innerHTML = html;
+        overlayEl.classList.add('show');
+      }
       function hideOverlay() { overlayEl.classList.remove('show'); overlayContent.innerHTML = ''; }
 
       function showStart() {
@@ -403,8 +274,8 @@
         showOverlay(`
           <h2>急速模式</h2>
           <p>30 秒內盡量破關！<br>盤面 6×5、每關隨機起始，<br>依序點出 17 個合數即過關。</p>
-          <div class="row"><button id="btnStart" style="grid-column:1/-1">點擊開始</button></div>
-        `);
+          <div class="row"><button id="btnStart" class="wide">點擊開始</button></div>
+        `, 'start');
         document.getElementById('btnStart').onclick = startRun;
       }
 
@@ -456,7 +327,7 @@
 
         showOverlay(`
           <h2>時間到！</h2>
-          <p class="big">完成 ${levelCount} 關</p>
+          <p class="done-count">完成 ${levelCount} 關</p>
           <p class="stat">平均一關：<b>${avgLevel}</b></p>
           <p class="stat">平均一格：<b>${avgCell}</b></p>
           <div class="row">
