@@ -793,6 +793,17 @@
           </div>
           <button class="btn dark" id="goFreeCard">進入</button>
         </article>
+
+        <article class="mode-card free-card">
+          <div class="mode-top">
+            <div>
+              <h3>急速模式 <span class="mode-note">30 秒挑戰</span></h3>
+              <p class="free-hint">⚡ 免登入・30 秒內衝幾關</p>
+            </div>
+            <span class="difficulty">Beta</span>
+          </div>
+          <button class="btn dark" id="goSpeedCard">進入</button>
+        </article>
       </div>
     </section>
   </main>
@@ -867,6 +878,9 @@
   aboutBtn.onclick = ()=>{
     location.href = 'about.html';
   };
+
+  const speedBtn = document.getElementById('goSpeedCard');
+  if (speedBtn) speedBtn.onclick = ()=>{ location.href = 'speed.html'; };
 
   updatesBtn.onclick = ()=>{
     location.href = 'updates.html';

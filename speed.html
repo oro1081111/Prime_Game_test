@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>質數遊戲-急速模式(Beta)</title>
+  <style>
+    :root { --maxw: 520px }
+
+    * { box-sizing: border-box }
+
+    body {
+      margin: 0;
+      padding:
+        max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+        max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+      font-family: system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+      background: #f6efe1;
+      color: #222;
+      font-size: 16px;
+    }
+
+    .wrap { max-width: var(--maxw); margin: 0 auto; text-align: center }
+
+    h1 { font-size: clamp(20px, 5vw, 28px); margin: 8px 0 12px }
+
+    .beta {
+      font-size: 13px;
+      font-weight: 800;
+      color: #fff;
+      background: #6d28d9;
+      border-radius: 999px;
+      padding: 2px 9px;
+      vertical-align: middle;
+    }
+
+    .hud {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+
+    .pill {
+      background: #fff3c4;
+      border: 1px solid #e7cf86;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 15px;
+    }
+
+    .pill.time { background: #e6f7ff; border-color: #8bd3f7 }
+    .pill.time.low { background: #ffe3e3; border-color: #ffb3b3; color: #b00020 }
+
+    .board-wrap { position: relative; width: min(100%, var(--maxw)); margin: 10px auto }
+
+    .board { display: grid; grid-template-columns: repeat(5, 1fr); gap: clamp(3px, .8vw, 5px) }
+
+    .cell {
+      --cell-bg: rgba(255, 255, 255, .82);
+      --cell-border: #8aa5a0;
+      --cell-color: #172033;
+      position: relative;
+      border: 1px solid var(--cell-border);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--cell-bg);
+      color: var(--cell-color);
+      user-select: none;
+      cursor: pointer;
+      aspect-ratio: 1/1;
+      font-size: clamp(13px, 4.5vw, 22px);
+      font-weight: 800;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, .64) inset;
+      transition: background .12s, border-color .12s, transform .12s, color .12s;
+    }
+
+    .cell.fixed { cursor: default }
+
+    .cell.blocked {
+      --cell-bg: #4b5563;
+      --cell-border: #374151;
+      --cell-color: #4b5563;
+      cursor: default;
+      box-shadow: none;
+    }
+
+    .cell.one {
+      --cell-bg: #fff0b3;
+      --cell-border: #e6b800;
+      --cell-color: #7a4d00;
+    }
+
+    .cell.prime {
+      --cell-bg: #f0e8ff;
+      --cell-border: #a78bfa;
+      --cell-color: #4b2faf;
+    }
+
+    .cell.next-prime-highlight {
+      --cell-bg: #e6ffe9;
+      --cell-border: #22c55e;
+      --cell-color: #14532d;
+      transform: scale(1.03);
+      box-shadow: 0 0 0 2px rgba(20, 83, 45, .42) inset;
+    }
+
+    .cell.filled {
+      --cell-bg: #e8f7ff;
+      --cell-border: #8bd3f7;
+      --cell-color: #075985;
+    }
+
+    .cell.wrong { animation: shake .22s }
+
+    @keyframes shake {
+      0% { transform: translateX(0) }
+      50% { transform: translateX(-2px) }
+      100% { transform: translateX(0) }
+    }
+
+    /* 開場 3 秒的淡淡背景數字倒數（不擋住盤面、不吃點擊） */
+    .watermark {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .watermark.show { display: flex }
+
+    .watermark span {
+      font-size: min(60vw, 320px);
+      font-weight: 900;
+      line-height: 1;
+      color: rgba(31, 41, 55, .16);
+      text-shadow: 0 2px 12px rgba(255, 255, 255, .5);
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, .55);
+      backdrop-filter: blur(8px);
+      border-radius: 6px;
+      z-index: 5;
+    }
+
+    .overlay.show { display: flex }
+
+    .modal {
+      box-sizing: border-box;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, .22);
+      padding: 22px 24px;
+      width: min(400px, 90%);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .modal h2 { font-size: 1.5em; margin: 0 0 .5rem }
+    .modal p { margin: 8px 0; color: #333; font-size: 16px }
+    .modal .big { font-size: 30px; font-weight: 900; color: #172033 }
+    .modal .stat b { color: #4b2faf }
+
+    .modal .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    @media (max-width:420px) { .modal .row { grid-template-columns: 1fr } }
+
+    button {
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      background: #ffbf48;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 2px 0 rgba(0, 0, 0, .08);
+    }
+
+    button.secondary { background: #fff; border: 1px solid #e7cf86 }
+
+    .controls-row { display: flex; gap: 10px; justify-content: center; margin: 12px 0 }
+
+    #status { margin-top: 8px; color: #5a4700; font-size: 14px; min-height: 18px }
+
+    footer { text-align: center; color: #667085; font-size: 12px; margin-top: 6px }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>急速模式 <span class="beta">Beta</span></h1>
+
+    <div class="hud">
+      <div class="pill time" id="timePill">剩餘：<b id="timeLeft">30.0</b>s</div>
+      <div class="pill">第 <b id="levelNum">1</b> 關</div>
+      <div class="pill">進度：<span id="progress">0</span>/17</div>
+    </div>
+
+    <div class="board-wrap">
+      <div id="board" class="board"></div>
+      <div id="watermark" class="watermark"><span id="wmNum"></span></div>
+      <div id="overlay" class="overlay">
+        <div id="overlayContent" class="modal"></div>
+      </div>
+    </div>
+
+    <div class="controls-row">
+      <button id="backHome" class="secondary">返回首頁</button>
+    </div>
+
+    <p id="status"></p>
+    <footer>© 奧羅桌遊設計工作室 - Prime Game</footer>
+  </div>
+
+  <script>
+    (() => {
+      // ---- DOM ----
+      const boardEl = document.getElementById('board');
+      const overlayEl = document.getElementById('overlay');
+      const overlayContent = document.getElementById('overlayContent');
+      const wmEl = document.getElementById('watermark');
+      const wmNumEl = document.getElementById('wmNum');
+      const timeLeftEl = document.getElementById('timeLeft');
+      const timePill = document.getElementById('timePill');
+      const levelNumEl = document.getElementById('levelNum');
+      const progressEl = document.getElementById('progress');
+      const statusEl = document.getElementById('status');
+
+      // ---- 固定規格 ----
+      const R = 6, C = 5;            // 高 6 × 寬 5 = 30 格
+      const TOTAL_MS = 30000;        // 30 秒倒數
+      const TARGET_COMPOSITES = 17;  // 每關要點的合數固定 17
+
+      // ---- 狀態 ----
+      let startNum = 1;
+      let path = [], gridOrder = [], blocked = [];
+      let isFixed = [], filled = [], assigned = [], stack = [];
+      let posOf = {};
+      let current = 0, maxVal = 0, totalComposites = 0;
+      let inputLocked = true;
+      let running = false;
+      let levelCount = 0;
+      let deadline = 0, timerId = null, cdId = null;
+
+      // ---- 數學 ----
+      const isPrime = (n) => { if (n <= 1) return false; if (n === 2) return true; if (n % 2 === 0) return false; for (let i = 3; i * i <= n; i += 2) { if (n % i === 0) return false; } return true; };
+      const isComposite = (n) => n > 1 && !isPrime(n);
+      const nextComposite = (n) => { let k = n + 1; while (k <= maxVal && !isComposite(k)) k++; return k; };
+
+      // ---- 漢米爾頓路徑（Backbite）----
+      function initSnake(R, C) { const p = []; for (let r = 0; r < R; r++) { if (r % 2 === 0) { for (let c = 0; c < C; c++)p.push([r, c]); } else { for (let c = C - 1; c >= 0; c--)p.push([r, c]); } } return p; }
+      function backbite(p, R, C) { const n = p.length; if (n < 4) return false; const useHead = Math.random() < 0.5; const endpoint = useHead ? p[0] : p[n - 1]; const idx = new Map(); for (let i = 0; i < n; i++)idx.set(p[i][0] + "," + p[i][1], i); const ds = [[1, 0], [-1, 0], [0, 1], [0, -1]]; const cand = []; for (const [dr, dc] of ds) { const nr = endpoint[0] + dr, nc = endpoint[1] + dc; if (nr < 0 || nr >= R || nc < 0 || nc >= C) continue; const key = nr + "," + nc; if (!idx.has(key)) continue; const k = idx.get(key); if (useHead) { if (k <= 1) continue; } else { if (k >= n - 2) continue; } cand.push(k); } if (!cand.length) return false; const k = cand[(Math.random() * cand.length) | 0]; if (useHead) { const pre = p.slice(0, k).reverse(); const rest = p.slice(k); p.splice(0, p.length, ...pre, ...rest); } else { const left = p.slice(0, k + 1); const tail = p.slice(k + 1).reverse(); p.splice(0, p.length, ...left, ...tail); } return true; }
+
+      // 找出可玩格數 p，使 (startNum, startNum+p-1] 內合數剛好 = 17
+      function playableForTarget(start) {
+        let count = 0;
+        for (let p = 2; p <= R * C; p++) {
+          if (isComposite(start + p - 1)) count++;
+          if (count === TARGET_COMPOSITES) return p;
+        }
+        return R * C; // 理論上不會用到（30 格範圍內合數必 ≥ 17）
+      }
+
+      function buildBoard() {
+        boardEl.style.gridTemplateColumns = `repeat(${C}, 1fr)`;
+        boardEl.innerHTML = '';
+        let highlightPrime = null;
+        for (let k = current + 1; k <= maxVal; k++) { if (isPrime(k)) { highlightPrime = k; break; } }
+        for (let r = 0; r < R; r++) {
+          for (let c = 0; c < C; c++) {
+            const v = gridOrder[r][c];
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.dataset.r = r; cell.dataset.c = c;
+            if (blocked[r][c]) { cell.classList.add('blocked'); boardEl.appendChild(cell); continue; }
+            if (v === startNum) {
+              cell.classList.add('fixed', 'one'); cell.textContent = String(v);
+            } else if (filled[r][c]) {
+              const val = assigned[r][c];
+              if (isPrime(val)) cell.classList.add('prime'); else cell.classList.add('filled');
+              cell.textContent = String(val);
+            } else if (isPrime(v)) {
+              cell.classList.add('prime', 'fixed'); cell.textContent = String(v);
+              if (v === highlightPrime) cell.classList.add('next-prime-highlight');
+            }
+            boardEl.appendChild(cell);
+          }
+        }
+      }
+
+      function updateHUD() {
+        levelNumEl.textContent = String(levelCount + 1);
+        progressEl.textContent = String(stack.length);
+        buildBoard();
+      }
+
+      function newLevel() {
+        startNum = 1 + Math.floor(Math.random() * 105); // 1~105
+        const p = playableForTarget(startNum);
+        const K = R * C - p;
+
+        // 生成完整路徑 + peel-and-shuffle 削掉 K 個端點（保證有解）
+        path = initSnake(R, C);
+        if (Math.random() < 0.5) path.reverse();
+        const iters = Math.max(1, 20 * R * C);
+        for (let i = 0; i < iters; i++) backbite(path, R, C);
+        blocked = Array.from({ length: R }, () => Array(C).fill(false));
+        const SHUFFLE = 6;
+        for (let n = 0; n < K; n++) {
+          for (let s = 0; s < SHUFFLE; s++) backbite(path, R, C);
+          const cell = (Math.random() < 0.5) ? path.shift() : path.pop();
+          blocked[cell[0]][cell[1]] = true;
+        }
+        gridOrder = Array.from({ length: R }, () => Array(C).fill(0));
+        path.forEach((pt, i) => { gridOrder[pt[0]][pt[1]] = startNum + i; });
+
+        // 重設此關狀態
+        isFixed = Array.from({ length: R }, () => Array(C).fill(false));
+        filled = Array.from({ length: R }, () => Array(C).fill(false));
+        assigned = Array.from({ length: R }, () => Array(C).fill(0));
+        posOf = {}; stack = [];
+        for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+          const v = gridOrder[r][c];
+          if (!blocked[r][c] && (v === startNum || isPrime(v))) { isFixed[r][c] = true; posOf[v] = [r, c]; }
+        }
+        maxVal = startNum + p - 1;
+        totalComposites = 0;
+        for (let k = startNum + 1; k <= maxVal; k++) if (isComposite(k)) totalComposites++;
+        current = nextComposite(startNum);
+        updateHUD();
+      }
+
+      function tryShake(el) { el.classList.add('wrong'); setTimeout(() => el.classList.remove('wrong'), 220); }
+
+      // ---- 點擊填格 / 悔棋 ----
+      boardEl.addEventListener('click', (e) => {
+        if (inputLocked || !running) return;
+        const cell = e.target.closest('.cell'); if (!cell) return;
+        const r = +cell.dataset.r, c = +cell.dataset.c;
+        if (blocked[r][c] || isFixed[r][c]) return;
+
+        if (filled[r][c]) { // 悔棋：撤回此格及其後
+          const idx = stack.findIndex(([rr, cc]) => rr === r && cc === c);
+          if (idx !== -1) {
+            for (let i = stack.length - 1; i >= idx; i--) {
+              const [rr, cc] = stack[i];
+              const delVal = assigned[rr][cc];
+              filled[rr][cc] = false; assigned[rr][cc] = 0; delete posOf[delVal];
+            }
+            stack = stack.slice(0, idx);
+            let last = startNum;
+            if (stack.length) { const [lr, lc] = stack[stack.length - 1]; last = assigned[lr][lc]; }
+            current = nextComposite(last);
+            updateHUD();
+          }
+          return;
+        }
+
+        if (current > maxVal) return;
+        const prevPos = posOf[current - 1]; if (!prevPos) { tryShake(cell); return; }
+        if (Math.abs(prevPos[0] - r) + Math.abs(prevPos[1] - c) !== 1) { tryShake(cell); return; }
+        const nxt = current + 1;
+        if (nxt <= maxVal && isPrime(nxt)) {
+          const nxtPos = posOf[nxt];
+          if (!(nxtPos && Math.abs(nxtPos[0] - r) + Math.abs(nxtPos[1] - c) === 1)) { tryShake(cell); return; }
+        }
+
+        filled[r][c] = true; assigned[r][c] = current; stack.push([r, c]); posOf[current] = [r, c];
+        current = nextComposite(current);
+        updateHUD();
+
+        if (stack.length === totalComposites) {  // 完成一關 → 無縫接下一關
+          levelCount++;
+          newLevel();
+        }
+      });
+
+      // ---- Overlay ----
+      function showOverlay(html) { overlayContent.innerHTML = html; overlayEl.classList.add('show'); }
+      function hideOverlay() { overlayEl.classList.remove('show'); overlayContent.innerHTML = ''; }
+
+      function showStart() {
+        inputLocked = true;
+        showOverlay(`
+          <h2>急速模式</h2>
+          <p>30 秒內盡量破關！<br>盤面 6×5、每關隨機起始，<br>依序點出 17 個合數即過關。</p>
+          <div class="row"><button id="btnStart" style="grid-column:1/-1">點擊開始</button></div>
+        `);
+        document.getElementById('btnStart').onclick = startRun;
+      }
+
+      function startRun() {
+        hideOverlay();
+        levelCount = 0;
+        newLevel();               // 先產生第一關，讓玩家在倒數時就能看到盤面
+        inputLocked = true;
+        running = false;
+        // 3 秒淡淡背景倒數
+        let n = 3;
+        wmNumEl.textContent = String(n);
+        wmEl.classList.add('show');
+        clearInterval(cdId);
+        cdId = setInterval(() => {
+          n--;
+          if (n > 0) { wmNumEl.textContent = String(n); }
+          else {
+            clearInterval(cdId); cdId = null;
+            wmEl.classList.remove('show');
+            beginTimer();
+          }
+        }, 1000);
+      }
+
+      function beginTimer() {
+        inputLocked = false;
+        running = true;
+        deadline = performance.now() + TOTAL_MS;
+        statusEl.textContent = '開始！';
+        clearInterval(timerId);
+        timerId = setInterval(() => {
+          const remain = Math.max(0, deadline - performance.now());
+          timeLeftEl.textContent = (remain / 1000).toFixed(1);
+          timePill.classList.toggle('low', remain <= 5000);
+          if (remain <= 0) endRun();
+        }, 50);
+      }
+
+      function endRun() {
+        clearInterval(timerId); timerId = null;
+        running = false; inputLocked = true;
+        timeLeftEl.textContent = '0.0';
+        statusEl.textContent = '時間到！';
+
+        const cellsFilled = levelCount * TARGET_COMPOSITES + stack.length;
+        const avgLevel = levelCount > 0 ? (30 / levelCount).toFixed(2) + ' 秒' : '—';
+        const avgCell = cellsFilled > 0 ? (30 / cellsFilled).toFixed(2) + ' 秒' : '—';
+
+        showOverlay(`
+          <h2>時間到！</h2>
+          <p class="big">完成 ${levelCount} 關</p>
+          <p class="stat">平均一關：<b>${avgLevel}</b></p>
+          <p class="stat">平均一格：<b>${avgCell}</b></p>
+          <div class="row">
+            <button id="btnAgain">再挑戰一次</button>
+            <button id="btnHome" class="secondary">返回首頁</button>
+          </div>
+        `);
+        document.getElementById('btnAgain').onclick = () => { statusEl.textContent = ''; showStart(); };
+        document.getElementById('btnHome').onclick = () => { location.href = 'index.html'; };
+      }
+
+      document.getElementById('backHome').onclick = () => { location.href = 'index.html'; };
+
+      // init
+      showStart();
+    })();
+  </script>
+</body>
+
+</html>
