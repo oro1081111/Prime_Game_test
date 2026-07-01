@@ -39,26 +39,6 @@
       box-shadow: none;
     }
 
-    /* 開場 3 秒的淡淡背景數字倒數（不擋盤面、不吃點擊） */
-    .watermark {
-      position: absolute;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      pointer-events: none;
-    }
-
-    .watermark.show { display: flex; }
-
-    .watermark span {
-      font-size: min(60vw, 300px);
-      font-weight: 900;
-      line-height: 1;
-      color: rgba(31, 41, 55, .16);
-      text-shadow: 0 2px 12px rgba(255, 255, 255, .5);
-    }
-
     .modal .done-count {
       font-size: 30px;
       font-weight: 900;
@@ -74,6 +54,13 @@
   <div class="wrap">
     <h1>急速模式 <span class="beta">Beta</span></h1>
 
+    <div class="controls">
+      <div class="controls-row">
+        <button id="gen">開始新遊戲</button>
+        <button id="backHome">返回首頁</button>
+      </div>
+    </div>
+
     <div class="hud">
       <div class="pill time" id="timePill">剩餘：<b id="timeLeft">30.0</b>s</div>
       <div class="pill">第 <b id="levelNum">1</b> 關</div>
@@ -82,15 +69,8 @@
 
     <div class="board-wrap">
       <div id="board" class="board"></div>
-      <div id="watermark" class="watermark"><span id="wmNum"></span></div>
       <div id="overlay" class="overlay">
         <div id="overlayContent" class="modal"></div>
-      </div>
-    </div>
-
-    <div class="controls">
-      <div class="controls-row">
-        <button id="backHome" class="secondary">返回首頁</button>
       </div>
     </div>
 
@@ -104,8 +84,6 @@
       const boardEl = document.getElementById('board');
       const overlayEl = document.getElementById('overlay');
       const overlayContent = document.getElementById('overlayContent');
-      const wmEl = document.getElementById('watermark');
-      const wmNumEl = document.getElementById('wmNum');
       const timeLeftEl = document.getElementById('timeLeft');
       const timePill = document.getElementById('timePill');
       const levelNumEl = document.getElementById('levelNum');
@@ -279,23 +257,32 @@
         document.getElementById('btnStart').onclick = startRun;
       }
 
-      function startRun() {
-        hideOverlay();
+      // 重置挑戰：停掉計時、產生第一關（顯示於開始遮罩後方）、顯示開始遮罩
+      function resetChallenge() {
+        clearInterval(timerId); timerId = null;
+        clearInterval(cdId); cdId = null;
+        running = false; inputLocked = true;
         levelCount = 0;
-        newLevel();               // 先產生第一關，讓玩家在倒數時就能看到盤面
+        timeLeftEl.textContent = '30.0';
+        timePill.classList.remove('low');
+        statusEl.textContent = '';
+        newLevel();
+        showStart();
+      }
+
+      function startRun() {
+        // 3 秒倒數（與基礎模式相同：遮罩大數字 3-2-1）
         inputLocked = true;
-        running = false;
-        // 3 秒淡淡背景倒數
         let n = 3;
-        wmNumEl.textContent = String(n);
-        wmEl.classList.add('show');
+        showOverlay(`<div class="big" id="cdNum">${n}</div><p>準備囉…</p>`);
         clearInterval(cdId);
         cdId = setInterval(() => {
           n--;
-          if (n > 0) { wmNumEl.textContent = String(n); }
+          const el = document.getElementById('cdNum');
+          if (n > 0) { if (el) el.textContent = String(n); }
           else {
             clearInterval(cdId); cdId = null;
-            wmEl.classList.remove('show');
+            hideOverlay();
             beginTimer();
           }
         }, 1000);
@@ -335,14 +322,15 @@
             <button id="btnHome" class="secondary">返回首頁</button>
           </div>
         `);
-        document.getElementById('btnAgain').onclick = () => { statusEl.textContent = ''; showStart(); };
+        document.getElementById('btnAgain').onclick = resetChallenge;
         document.getElementById('btnHome').onclick = () => { location.href = 'index.html'; };
       }
 
+      document.getElementById('gen').onclick = resetChallenge;
       document.getElementById('backHome').onclick = () => { location.href = 'index.html'; };
 
       // init
-      showStart();
+      resetChallenge();
     })();
   </script>
 </body>
