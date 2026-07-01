@@ -1103,6 +1103,20 @@
       // 綁定事件
       document.getElementById('backHome').onclick = () => { location.href = 'index.html'; };
       document.getElementById('gen').onclick = generate;
+
+      // 手動輸入即時夾制：離開欄位時，超出範圍的值立刻修正（高度/寬度 2~20、起始 1~999）
+      function clampField(el, min, max) {
+        const fix = () => {
+          let v = parseInt(el.value, 10);
+          if (!Number.isFinite(v)) v = min;
+          el.value = Math.min(max, Math.max(min, v));
+        };
+        el.addEventListener('change', fix);
+        el.addEventListener('blur', fix);
+      }
+      clampField(rowsEl, 2, 20);
+      clampField(colsEl, 2, 20);
+      clampField(startEl, 1, 999);
       pauseBtn.onclick = () => {
         if (gameState === 'idle') return;
         if (gameState === 'running') { stopTimer(); inputLocked = true; showPaused(); }
