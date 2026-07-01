@@ -99,6 +99,14 @@
       cursor: default
     }
 
+    .cell.blocked {
+      --cell-bg: #4b5563;
+      --cell-border: #374151;
+      --cell-color: #4b5563;
+      cursor: default;
+      box-shadow: none
+    }
+
     .cell.one {
       --cell-bg: #fff0b3;
       --cell-border: #e6b800;
@@ -368,7 +376,8 @@
       text-align: center;
     }
 
-    #startNum {
+    #startNum,
+    #blockNum {
       width: 52px;
       text-align: center;
     }
@@ -500,6 +509,7 @@
         <label>高度<input id="rows" type="number" value="5" min="2" max="20"></label>
         <label>寬度<input id="cols" type="number" value="5" min="2" max="20"></label>
         <label>起始<input id="startNum" type="number" value="1" min="1" max="999"></label>
+        <label>阻擋<input id="blockNum" type="number" value="0" min="0"></label>
         <label class="switch">
           <input id="hiddenMode" type="checkbox" />
           <span class="slider" aria-hidden="true"></span>
@@ -576,6 +586,7 @@
       const rowsEl = document.getElementById('rows');
       const colsEl = document.getElementById('cols');
       const startEl = document.getElementById('startNum');
+      const blockEl = document.getElementById('blockNum');
       const hiddenModeEl = document.getElementById('hiddenMode');
 
       const statusEl = document.getElementById('status');
@@ -608,6 +619,7 @@
       // State
       let R = 0, C = 0, startNum = 1;
       let path = [], gridOrder = [];
+      let blocked = []; // blocked[r][c] = true 代表深灰阻擋格（不可填、不屬於路徑）
       let isFixed = [], filled = [], assigned = [], stack = [];
       let current = 0, maxVal = 0, totalComposites = 0;
       let posOf = {};
@@ -683,6 +695,12 @@
             cell.className = 'cell';
             cell.dataset.r = r; cell.dataset.c = c;
 
+            if (blocked[r] && blocked[r][c]) {
+              cell.classList.add('blocked');
+              boardEl.appendChild(cell);
+              continue;
+            }
+
             if (v === startNum) {
               cell.classList.add('fixed', 'one');
               cell.textContent = String(v);
@@ -731,10 +749,14 @@
           }
         }
 
-        maxVal = startNum + R * C - 1;
+        // 可填格數 = 總格數 - 阻擋格數（阻擋格不參與編號）
+        let blockedN = 0;
+        for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) if (blocked[r] && blocked[r][c]) blockedN++;
+        const playable = R * C - blockedN;
+        maxVal = startNum + playable - 1;
 
         if (hiddenMode) {
-          totalComposites = R * C - 1;
+          totalComposites = playable - 1;
           current = startNum + 1;
         } else {
           totalComposites = 0;
@@ -842,11 +864,28 @@
           rowsEl.value = R; colsEl.value = C; startEl.value = startNum;
           hiddenMode = !!(hiddenModeEl && hiddenModeEl.checked);
 
+          // 阻擋數：夾在 [0, 高×寬-4]（至少保留 4 格可玩）
+          const maxBlocks = Math.max(0, R * C - 4);
+          const K = Math.min(maxBlocks, Math.max(0, parseInt(blockEl.value, 10) || 0));
+          blockEl.value = K;
+
+          // 1) 先生成一條完整的漢米爾頓路徑
           path = initSnake(R, C);
           if (Math.random() < 0.5) path.reverse();
           const iters = Math.max(1, 20 * R * C);
           for (let i = 0; i < iters; i++) backbite(path, R, C);
 
+          // 2) peel-and-shuffle：每削掉 1 個端點前先洗牌，讓端點跑到不同位置，
+          //    使阻擋格散落於盤面；因為每一步都只移除「路徑端點」，剩餘永遠是合法漢米爾頓路徑（保證有解）
+          blocked = Array.from({ length: R }, () => Array(C).fill(false));
+          const SHUFFLE = 6;
+          for (let n = 0; n < K; n++) {
+            for (let s = 0; s < SHUFFLE; s++) backbite(path, R, C);
+            const cell = (Math.random() < 0.5) ? path.shift() : path.pop();
+            blocked[cell[0]][cell[1]] = true;
+          }
+
+          // 3) 對剩餘路徑編號（阻擋格保持 0，不參與）
           gridOrder = Array.from({ length: R }, () => Array(C).fill(0));
           path.forEach((pt, i) => { gridOrder[pt[0]][pt[1]] = startNum + i; });
 
@@ -891,6 +930,7 @@
         const r = +cell.dataset.r, c = +cell.dataset.c;
         const v = gridOrder[r][c];
 
+        if (blocked[r] && blocked[r][c]) return; // 阻擋格不可點
         if (isFixed[r][c]) return;
 
         if (filled[r][c]) {
@@ -966,11 +1006,12 @@
           }
           updateHUD();
 
-          // 播放一次完整的路徑動畫
+          // 播放一次完整的路徑動畫（阻擋格不參與）
           let k = 0;
           const allCells = [];
           for (let r = 0; r < R; r++) {
             for (let c = 0; c < C; c++) {
+              if (blocked[r] && blocked[r][c]) continue;
               allCells.push({ r, c, val: gridOrder[r][c] });
             }
           }
@@ -1001,7 +1042,11 @@
         URL.revokeObjectURL(a.href); a.remove();
       }
       function exportPuzzle() {
-        const data = { version: 1, R, C, startNum, hiddenMode, gridOrder };
+        const blockedCells = [];
+        for (let r = 0; r < R; r++)
+          for (let c = 0; c < C; c++)
+            if (blocked[r] && blocked[r][c]) blockedCells.push([r, c]);
+        const data = { version: 2, R, C, startNum, hiddenMode, gridOrder, blocked: blockedCells };
         const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
         downloadBlob(`puzzle_${R}x${C}_start${startNum}_${hiddenMode ? 'hidden' : 'normal'}.json`, blob);
       }
@@ -1030,23 +1075,46 @@
             throw new Error('起始數字需為 1~999 的整數');
           }
 
-          // 驗證 gridOrder 為 startNum..startNum+R*C-1 的一個排列
+          // 阻擋格清單 → 矩陣
+          const blockedList = Array.isArray(data.blocked) ? data.blocked : [];
+          const blockedMatrix = Array.from({ length: rLen }, () => Array(cLen).fill(false));
+          for (const bc of blockedList) {
+            if (!Array.isArray(bc) || bc.length !== 2) throw new Error('阻擋格資料不合法');
+            const [br, bcc] = bc;
+            if (!Number.isInteger(br) || !Number.isInteger(bcc) || br < 0 || br >= rLen || bcc < 0 || bcc >= cLen) {
+              throw new Error('阻擋格座標超出範圍');
+            }
+            blockedMatrix[br][bcc] = true;
+          }
+          const playable = rLen * cLen - blockedList.length;
+          if (playable < 4) throw new Error('可玩格數不足（阻擋過多）');
+
+          // 驗證：非阻擋格為 startNum..startNum+playable-1 的排列；阻擋格忽略其值
           const expected = new Set();
-          for (let i = 0; i < rLen * cLen; i++) expected.add(startImport + i);
-          for (const row of data.gridOrder) {
-            for (const val of row) {
+          for (let i = 0; i < playable; i++) expected.add(startImport + i);
+          for (let r = 0; r < rLen; r++) {
+            for (let c = 0; c < cLen; c++) {
+              if (blockedMatrix[r][c]) continue;
+              const val = data.gridOrder[r][c];
               if (!Number.isInteger(val) || !expected.delete(val)) {
                 throw new Error('棋盤數字資料不合法');
               }
             }
           }
+          if (expected.size !== 0) throw new Error('棋盤數字資料不完整');
 
           R = rImport; C = cImport;
           startNum = startImport;
           hiddenMode = !!data.hiddenMode;
           gridOrder = data.gridOrder;
+          blocked = blockedMatrix;
+          // 保險：阻擋格數值歸零
+          for (let r = 0; r < R; r++)
+            for (let c = 0; c < C; c++)
+              if (blocked[r][c]) gridOrder[r][c] = 0;
 
           rowsEl.value = R; colsEl.value = C; startEl.value = startNum;
+          blockEl.value = blockedList.length;
           if (hiddenModeEl) hiddenModeEl.checked = hiddenMode;
 
           resetTimer(); hintCount = 0; hintBtn.textContent = '提示次數：0'; undoCount = 0; undoCountEl.textContent = '0';
@@ -1073,7 +1141,7 @@
         canvas.width = W; canvas.height = H;
         const ctx = canvas.getContext('2d');
 
-        const colGrid = '#bbb', colText = '#222', colPrimeBg = '#f0e8ff', colStartBg = '#fff0b3';
+        const colGrid = '#bbb', colText = '#222', colPrimeBg = '#f0e8ff', colStartBg = '#fff0b3', colBlocked = '#4b5563';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.font = `${Math.floor(cellSize * 0.42)}px system-ui, sans-serif`;
 
@@ -1083,6 +1151,12 @@
           for (let c = 0; c < C; c++) {
             const v = gridOrder[r][c];
             const x = c * cellSize, y = r * cellSize;
+
+            if (blocked[r] && blocked[r][c]) {
+              ctx.fillStyle = colBlocked; ctx.fillRect(x, y, cellSize, cellSize);
+              ctx.strokeStyle = colGrid; ctx.strokeRect(x, y, cellSize, cellSize);
+              continue;
+            }
 
             if (v === startNum) { ctx.fillStyle = colStartBg; ctx.fillRect(x, y, cellSize, cellSize); }
             else if (isPrime(v)) { ctx.fillStyle = colPrimeBg; ctx.fillRect(x, y, cellSize, cellSize); }
@@ -1117,6 +1191,22 @@
       clampField(rowsEl, 2, 20);
       clampField(colsEl, 2, 20);
       clampField(startEl, 1, 999);
+
+      // 阻擋數上限 = 高×寬-4（隨高度/寬度變動而重新夾制）
+      function clampBlock() {
+        const r = Math.min(20, Math.max(2, parseInt(rowsEl.value, 10) || 5));
+        const c = Math.min(20, Math.max(2, parseInt(colsEl.value, 10) || 5));
+        const maxB = Math.max(0, r * c - 4);
+        let v = parseInt(blockEl.value, 10);
+        if (!Number.isFinite(v)) v = 0;
+        blockEl.value = Math.min(maxB, Math.max(0, v));
+      }
+      blockEl.addEventListener('change', clampBlock);
+      blockEl.addEventListener('blur', clampBlock);
+      rowsEl.addEventListener('change', clampBlock);
+      colsEl.addEventListener('change', clampBlock);
+      rowsEl.addEventListener('blur', clampBlock);
+      colsEl.addEventListener('blur', clampBlock);
       pauseBtn.onclick = () => {
         if (gameState === 'idle') return;
         if (gameState === 'running') { stopTimer(); inputLocked = true; showPaused(); }
@@ -1166,7 +1256,7 @@
         const cellsToFill = [];
         for (let r = 0; r < R; r++) {
           for (let c = 0; c < C; c++) {
-            if (!isFixed[r][c]) {
+            if (!isFixed[r][c] && !(blocked[r] && blocked[r][c])) {
               cellsToFill.push({ r, c, val: gridOrder[r][c] });
             }
           }
