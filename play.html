@@ -91,7 +91,7 @@
       let inputLocked = true;
       let gameState = 'idle';
       let undoCount = 0, scoreSaved = false;
-      let answerTimer = null;
+      let answerTimer = null, cdTimer = null;
 
       let tStart = 0, tId = null, running = false, elapsedBeforePause = 0;
       const fmt = (ms) => {
@@ -230,13 +230,14 @@
       }
 
       function startCountdown() {
+        if (cdTimer) { clearInterval(cdTimer); cdTimer = null; }
         gameState = 'countdown';
         let n = 3;
         showOverlay(`<div class="big" id="cdNum">${n}</div><p>準備囉…</p>`);
         const cdNum = document.getElementById('cdNum');
-        const tick = setInterval(() => {
+        cdTimer = setInterval(() => {
           n--; if (n > 0) { cdNum.textContent = String(n); } else {
-            clearInterval(tick); hideOverlay(); inputLocked = false; gameState = 'running'; resetTimer(); startTimer();
+            clearInterval(cdTimer); cdTimer = null; hideOverlay(); inputLocked = false; gameState = 'running'; resetTimer(); startTimer();
           }
         }, 1000);
       }
@@ -320,6 +321,7 @@
           resetTimer(); inputLocked = true; gameState = 'idle';
           undoCount = 0; undoCountEl.textContent = '0'; scoreSaved = false;
           if (answerTimer) { clearInterval(answerTimer); answerTimer = null; }
+          if (cdTimer) { clearInterval(cdTimer); cdTimer = null; }
           path = initSnake(R, C);
           if (Math.random() < 0.5) path.reverse();
           const iters = Math.max(1, 20 * R * C);

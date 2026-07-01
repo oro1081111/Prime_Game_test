@@ -617,6 +617,7 @@
       let hintCount = 0, hintActive = false;
       let hiddenMode = false;
       let answerTimer = null; // 用於「顯示答案」的動畫
+      let cdTimer = null; // 倒數計時的 interval
 
       // Timer
       let tStart = 0, tId = null, running = false, elapsedBeforePause = 0;
@@ -768,13 +769,14 @@
       }
 
       function startCountdown() {
+        if (cdTimer) { clearInterval(cdTimer); cdTimer = null; }
         gameState = 'countdown';
         let n = 3;
         showOverlay(`<div class="big" id="cdNum">${n}</div><p>準備囉…</p>`, 'countdown');
         const cdNum = document.getElementById('cdNum');
-        const tick = setInterval(() => {
+        cdTimer = setInterval(() => {
           n--; if (n > 0) { cdNum.textContent = String(n); } else {
-            clearInterval(tick); hideOverlay(); inputLocked = false; gameState = 'running'; resetTimer(); startTimer();
+            clearInterval(cdTimer); cdTimer = null; hideOverlay(); inputLocked = false; gameState = 'running'; resetTimer(); startTimer();
             hintBtn.disabled = false; showBtn.disabled = false;
           }
         }, 1000);
@@ -830,6 +832,7 @@
           hintCount = 0; hintBtn.textContent = '提示次數：0';
           if (hintActive) clearHintHighlights();
           if (answerTimer) { clearInterval(answerTimer); answerTimer = null; }
+          if (cdTimer) { clearInterval(cdTimer); cdTimer = null; }
           showBtn.textContent = '顯示答案';
 
           R = parseInt(rowsEl.value, 10); C = parseInt(colsEl.value, 10);
@@ -1047,6 +1050,7 @@
           resetTimer(); hintCount = 0; hintBtn.textContent = '提示次數：0'; undoCount = 0; undoCountEl.textContent = '0';
           statusEl.className = '';
           if (answerTimer) { clearInterval(answerTimer); answerTimer = null; showBtn.textContent = '顯示答案'; }
+          if (cdTimer) { clearInterval(cdTimer); cdTimer = null; }
 
           resetState();
           stack = []; // Ensure stack is empty after resetState
