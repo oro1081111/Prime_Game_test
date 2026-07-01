@@ -105,6 +105,8 @@
       let running = false;
       let levelCount = 0;
       let deadline = 0, timerId = null, cdId = null;
+      let runStartMs = 0;        // 30 秒計時的起點
+      let lastCompletionMs = 0;  // 最後一次「通關」時的累計用時（= 已通關的總時間）
 
       // ---- 數學 ----
       const isPrime = (n) => { if (n <= 1) return false; if (n === 2) return true; if (n % 2 === 0) return false; for (let i = 3; i * i <= n; i += 2) { if (n % i === 0) return false; } return true; };
@@ -235,6 +237,7 @@
 
         if (stack.length === totalComposites) {  // 完成一關 → 無縫接下一關
           levelCount++;
+          lastCompletionMs = performance.now() - runStartMs; // 記錄已通關的累計用時
           newLevel();
         }
       });
@@ -263,6 +266,7 @@
         clearInterval(cdId); cdId = null;
         running = false; inputLocked = true;
         levelCount = 0;
+        lastCompletionMs = 0;
         timeLeftEl.textContent = '30.0';
         timePill.classList.remove('low');
         statusEl.textContent = '';
@@ -291,7 +295,8 @@
       function beginTimer() {
         inputLocked = false;
         running = true;
-        deadline = performance.now() + TOTAL_MS;
+        runStartMs = performance.now();
+        deadline = runStartMs + TOTAL_MS;
         statusEl.textContent = '開始！';
         clearInterval(timerId);
         timerId = setInterval(() => {
@@ -309,7 +314,8 @@
         statusEl.textContent = '時間到！';
 
         const cellsFilled = levelCount * TARGET_COMPOSITES + stack.length;
-        const avgLevel = levelCount > 0 ? (30 / levelCount).toFixed(2) + ' 秒' : '—';
+        // 平均一關 = 已通關的總時間 / 通關數（不含最後未完成關的時間）
+        const avgLevel = levelCount > 0 ? ((lastCompletionMs / 1000) / levelCount).toFixed(2) + ' 秒' : '—';
         const avgCell = cellsFilled > 0 ? (30 / cellsFilled).toFixed(2) + ' 秒' : '—';
 
         showOverlay(`
